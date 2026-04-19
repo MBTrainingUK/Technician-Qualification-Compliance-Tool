@@ -1,0 +1,16 @@
+# Exclude real dealer data files
+*.xlsx
+*.xls
+*.docx
+*.doc
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Old/intermediate build versions (keep only latest)
+Compliance_Tool_v2.html
+Compliance_Tool_v3.html
+Compliance_Tool_v4.html
+Compliance_Tool_v5.html
+Technician_Compliance_Tool.html
