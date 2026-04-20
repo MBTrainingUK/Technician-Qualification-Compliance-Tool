@@ -121,6 +121,10 @@ tr:hover td { background: #fafafa; }
 .ov-table tr:last-child td { border-bottom: none; }
 .ov-table tr:hover td { background: #fafafa; }
 .ov-table .site-link { color: #0078d4; cursor: pointer; font-weight: 500; text-decoration: underline; text-underline-offset: 2px; }
+.sort-th { cursor: pointer; user-select: none; white-space: nowrap; }
+.sort-th:hover { background: #eef0f2 !important; color: #000; }
+.sort-arrow { display: inline-block; margin-left: 4px; font-size: 0.7rem; opacity: 0.35; vertical-align: middle; }
+.sort-arrow.active { opacity: 1; color: #000; }
 .chk { font-size: 1rem; }
 .chk-pass { color: #16a34a; }
 .chk-fail { color: #dc2626; }
@@ -130,7 +134,8 @@ tr:hover td { background: #fafafa; }
 .issues-1 { background: #fef9c3; color: #854d0e; }
 .issues-2, .issues-3, .issues-4, .issues-5 { background: #fee2e2; color: #991b1b; }
 .pipe-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 24px; }
-.pipe-stat { border-radius: 10px; padding: 16px 18px; text-align: center; }
+.pipe-stat { border-radius: 10px; padding: 16px 18px; text-align: center; cursor: pointer; user-select: none; transition: transform 0.12s, box-shadow 0.12s; }
+.pipe-stat:hover { transform: translateY(-3px); box-shadow: 0 6px 18px rgba(0,0,0,0.22); }
 .pipe-stat .ps-val { font-size: 2rem; font-weight: 700; line-height: 1; margin-bottom: 4px; }
 .pipe-stat .ps-lbl { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; opacity: 0.85; }
 .pipe-filter-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; align-items: center; }
@@ -159,8 +164,8 @@ tr:hover td { background: #fafafa; }
 <div class="header"><svg width="40" height="40" viewBox="0 0 40 40"><circle cx="20" cy="20" r="19" fill="none" stroke="white" stroke-width="1.5"/><line x1="20" y1="20" x2="20" y2="3" stroke="white" stroke-width="1.8"/><line x1="20" y1="20" x2="4.3" y2="29.5" stroke="white" stroke-width="1.8"/><line x1="20" y1="20" x2="35.7" y2="29.5" stroke="white" stroke-width="1.8"/></svg><div><h1>Technician Qualification Compliance Tool</h1><p>Dealer Standards &nbsp;&middot;&nbsp; Passenger Car &amp; Van</p></div></div>
 <div class="container">
   <div class="qual-key"><b>Official Qualification Codes:</b> <span><span class="qtag tag-mt">PC MT</span>&nbsp;MBPCQMT</span> <span><span class="qtag tag-st">PC ST</span>&nbsp;MBPCQST</span> <span><span class="qtag tag-dt">PC DT</span>&nbsp;MBPCQDT</span> <span><span class="qtag tag-mt">Van MT</span>&nbsp;MBVQMT</span> <span><span class="qtag tag-st">Van ST</span>&nbsp;MBVQST</span> <span><span class="qtag tag-dt">Van DT</span>&nbsp;MBVQDT</span></div>
-  <div class="load-card"><span class="load-title">&#128196; Load Data File</span><div class="drop-zone" id="dropZone" onclick="document.getElementById('xlFile').click()" ondragover="dzOver(event)" ondragleave="dzLeave(event)" ondrop="dzDrop(event)">&#128194; Drop the PDP Course Data .xlsx here &nbsp;or&nbsp; <strong>click to browse</strong></div><input type="file" id="xlFile" accept=".xlsx,.xls" style="display:none" onchange="fileChosen(this)"><div class="load-status" id="dataSourceLabel"></div></div>
-  <div class="tab-bar" id="tabBar"><button class="tab-btn active" id="tabOverview" onclick="switchTab('overview')">&#128202; Overview</button><button class="tab-btn" id="tabBySite" onclick="switchTab('bysite')">&#128205; By Site</button><button class="tab-btn" id="tabPipeline" onclick="switchTab('pipeline')">&#128640; ST Pipeline</button></div>  <div class="tab-panel active" id="panelOverview"><div id="overviewContent"></div></div>  <div class="tab-panel" id="panelPipeline"><div id="pipelineContent"></div></div>  <div class="tab-panel" id="panelBySite">  <div class="selector-card" id="siteSelectCard"><label for="siteSelect">&#128205; Select Site:</label><select id="siteSelect" onchange="renderSite()"><option value="">&mdash; Choose a dealership &mdash;</option></select><label class="toggle-wrap"><input type="checkbox" id="hideAppr" onchange="toggleAppr(this)"><span class="toggle-sw"></span><span class="toggle-text">Exclude Apprentice Technicians</span></label></div><div id="dashboard"></div></div>
+  <div class="load-card"><span class="load-title">&#128196; Load Data File</span><div class="drop-zone" id="dropZone" onclick="document.getElementById('xlFile').click()" ondragover="dzOver(event)" ondragleave="dzLeave(event)" ondrop="dzDrop(event)">&#128194; Drop the PDP Course Data .xlsx here &nbsp;or&nbsp; <strong>click to browse</strong></div><input type="file" id="xlFile" accept=".xlsx,.xls" style="display:none" onchange="fileChosen(this)"><div class="load-status" id="dataSourceLabel"></div><label class="toggle-wrap" style="margin-left:auto"><input type="checkbox" id="hideAppr" checked onchange="toggleAppr(this)"><span class="toggle-sw"></span><span class="toggle-text">Exclude Apprentices</span></label></div>
+  <div class="tab-bar" id="tabBar"><button class="tab-btn active" id="tabOverview" onclick="switchTab('overview')">&#128202; Overview</button><button class="tab-btn" id="tabBySite" onclick="switchTab('bysite')">&#128205; By Site</button><button class="tab-btn" id="tabPipeline" onclick="switchTab('pipeline')">&#128640; ST Pipeline</button></div>  <div class="tab-panel active" id="panelOverview"><div id="overviewContent"></div></div>  <div class="tab-panel" id="panelPipeline"><div id="pipelineContent"></div></div>  <div class="tab-panel" id="panelBySite">  <div class="selector-card" id="siteSelectCard"><label for="siteSelect">&#128205; Select Site:</label><select id="siteSelect" onchange="renderSite()"><option value="">&mdash; Choose a dealership &mdash;</option></select></div><div id="dashboard"></div></div>
 </div>
 <div class="footer">Qualifications determined solely by official course codes: MBPCQMT &middot; MBPCQST &middot; MBPCQDT &middot; MBVQMT &middot; MBVQST &middot; MBVQDT &nbsp;|&nbsp; Passed status only &nbsp;|&nbsp; Truck data excluded &nbsp;|&nbsp; Each technician counted in one role only (DT &gt; ST &gt; MT)</div>
 <script>
@@ -170,7 +175,7 @@ var SITE_DATA = {};
 const sel = document.getElementById('siteSelect');
 
 var currentFilter = 'all';
-var hideAppr = false;
+var hideAppr = true;
 var currentTechs = [];
 
 (function() {
@@ -195,6 +200,9 @@ function switchTab(tab) {
 var ovFilter     = 'all'; // 'all' | 'fail'
 var ovTypeFilter = 'all'; // 'all' | 'car' | 'van'
 var ovCardFilter = 'all'; // 'all' | 'pass' | 'nonCompliant' | 'failOverall' | 'failST' | 'failMT' | 'failDT'
+var ovNetworkFilter = 'mb'; // 'all' | 'mb' | 'partner'
+var ovSortCol    = 'name'; // current sort column key
+var ovSortDir    = 1;      // 1 = ascending, -1 = descending
 
 // Classify a site as 'car', 'van', or 'both' based on job roles of its people.
 // Job roles containing ' Car' (but not Van) → car; ' Van' (but not Car) → van.
@@ -225,11 +233,13 @@ function siteCompliance(site) {
   var effSTs     = byRole.ST.length + surplusDTs;
   var stPct      = Math.round(effSTs / techs.length * 100);
   var mtOnly     = byRole.MT.length;
+  var mtWaived   = mtOnly === 0 && byRole.none.length === 0 && (byRole.ST.length + byRole.DT.length) === techs.length && techs.length > 0;
   return {
     name: site, n: techs.length, pct: pct,
     passOverall: pct >= 80,
     passST:      stPct >= 60,
-    passMT:      mtOnly >= 1,
+    passMT:      mtOnly >= 1 || mtWaived,
+    mtWaived:    mtWaived,
     passDT1:     dtCount >= 1,
     passDTScale: dtCount >= dtNeeded,
     stPct: stPct, dtCount: dtCount, dtNeeded: dtNeeded, mtOnly: mtOnly, surplusDTs: surplusDTs
@@ -243,6 +253,8 @@ function renderOverview() {
     var t = getSiteType(s);
     if (ovTypeFilter === 'car' && t === 'van') return;
     if (ovTypeFilter === 'van' && t === 'car') return;
+    if (ovNetworkFilter === 'mb'      && !MB_OFFICIAL_SET.has(s)) return;
+    if (ovNetworkFilter === 'partner' && !MB_PARTNER_SET.has(s))  return;
     var r = siteCompliance(s);
     if (r) { r.siteType = t; all.push(r); }
   });
@@ -256,8 +268,20 @@ function renderOverview() {
   var nFailDT1      = all.filter(function(r) { return !r.passDT1; }).length;
   var nFailDTScale  = all.filter(function(r) { return !r.passDTScale; }).length;
   var nNonCompliant = total - nFullPass;
+  // Compliant counts (flipped) for the four rule cards
+  var nPassOverall  = total - nFailOverall;
+  var nPassST       = total - nFailST;
+  var nPassMT       = total - nFailMT;
+  var nPassDT       = total - (nFailDT1 + (nFailDTScale - nFailDT1));
+  function pct(n) { return total > 0 ? Math.round(100 * n / total) : 0; }
 
   var typeLabel = ovTypeFilter === 'car' ? 'Car Sites' : ovTypeFilter === 'van' ? 'Van Sites' : 'All Sites';
+  var networkToggle =
+    '<div class="ov-type-toggle" style="margin-bottom:10px">' +
+    '<button class="ov-type-btn' + (ovNetworkFilter==='all'?' active':'') + '" onclick="setOvNetworkFilter(\'all\')">&#127760; All Sites</button>' +
+    '<button class="ov-type-btn' + (ovNetworkFilter==='mb'?' active':'') + '" onclick="setOvNetworkFilter(\'mb\')">&#11088; MB Retailers Only</button>' +
+    '<button class="ov-type-btn' + (ovNetworkFilter==='partner'?' active':'') + '" onclick="setOvNetworkFilter(\'partner\')">&#129309; Partners Only</button>' +
+    '</div>';
   var typeToggle =
     '<div class="ov-type-toggle">' +
     '<button class="ov-type-btn' + (ovTypeFilter==='all'?' active':'') + '" onclick="setOvTypeFilter(\'all\')">All Sites</button>' +
@@ -267,62 +291,101 @@ function renderOverview() {
 
   var summaryHtml =
     '<div class="ov-summary">' +
-      statCard('#000',    '#fff', total,        'Total Sites',          'all') +
-      statCard('#16a34a', '#fff', nFullPass,    'Fully Compliant',      'pass') +
-      statCard('#dc2626', '#fff', nNonCompliant,'Non-Compliant',        'nonCompliant') +
-      statCard('#d97706', '#fff', nFailOverall, 'Fail 80% Overall',     'failOverall') +
-      statCard('#7e22ce', '#fff', nFailST,      'Fail 60% ST',          'failST') +
-      statCard('#0369a1', '#fff', nFailMT,      'No MT-only Tech',      'failMT') +
-      statCard('#9a3412', '#fff', nFailDT1 + (nFailDTScale - nFailDT1), 'DT Requirement Issue', 'failDT') +
+      statCard('#000',    '#fff', pct(total),        total,        'Total Sites',              'all') +
+      statCard('#16a34a', '#fff', pct(nFullPass),    nFullPass,    'Fully Compliant',          'pass') +
+      statCard('#d97706', '#fff', pct(nPassOverall), nPassOverall, 'Pass 80% Overall',         'failOverall') +
+      statCard('#7e22ce', '#fff', pct(nPassST),      nPassST,      'Pass 60% ST',              'failST') +
+      statCard('#0369a1', '#fff', pct(nPassMT),      nPassMT,      'MT Requirement Met',       'failMT') +
+      statCard('#9a3412', '#fff', pct(nPassDT),      nPassDT,      'DT Requirement Met',       'failDT') +
     '</div>';
 
-  var REQ_BARS = [
-    { label: '80% of technicians qualified (Overall)', fail: nFailOverall },
-    { label: '60% counted as System Tech (ST)',        fail: nFailST },
-    { label: 'At least 1 MT-only technician',          fail: nFailMT },
-    { label: 'At least 1 Diagnostic Tech (DT)',        fail: nFailDT1 },
-    { label: 'Scaled DT count met',                    fail: nFailDTScale }
-  ];
-  var reqBarsHtml = REQ_BARS.map(function(rb) {
-    var failPct = Math.round(rb.fail / total * 100);
-    var col = rb.fail === 0 ? '#16a34a' : rb.fail < total * 0.3 ? '#d97706' : '#dc2626';
-    return '<div class="req-bar-row">' +
-      '<div class="req-bar-label">' + rb.label + '</div>' +
-      '<div class="req-bar-track"><div class="req-bar-fill" style="width:' + Math.min(failPct, 100) + '%;background:' + col + '"></div></div>' +
-      '<div class="req-bar-num" style="color:' + col + '">' + rb.fail + ' sites</div>' +
-    '</div>';
-  }).join('');
+  // Issue-count breakdown cards
+  var issueCounts = [0,0,0,0,0];
+  all.forEach(function(r) {
+    var n = [!r.passOverall,!r.passST,!r.passMT,!r.passDT1,!r.passDTScale].filter(Boolean).length;
+    if (n >= 1 && n <= 5) issueCounts[n-1]++;
+  });
+  var ISSUE_COLOURS = ['#16a34a','#84cc16','#d97706','#ea580c','#dc2626'];
+  var issueCardsHtml = '<div class="ov-summary" style="margin-bottom:0">' +
+    issueCounts.map(function(cnt, i) {
+      var isActive = ovCardFilter === ('issues' + (i+1));
+      var ring = isActive ? ';outline:3px solid #fff;outline-offset:-4px' : '';
+      var p = total > 0 ? Math.round(100 * cnt / total) : 0;
+      return '<div class="ov-stat" style="background:' + ISSUE_COLOURS[i] + ';color:#fff;cursor:pointer' + ring + '"' +
+        ' onclick="setOvCardFilter(\'issues' + (i+1) + '\')" title="Click to filter table">' +
+        '<div class="ov-val">' + p + '%</div>' +
+        '<div style="font-size:0.95rem;font-weight:600;opacity:0.75;margin-top:2px">' + cnt + ' sites</div>' +
+        '<div class="ov-lbl">' + (i+1) + ' Issue' + (i > 0 ? 's' : '') + '</div>' +
+      '</div>';
+    }).join('') +
+  '</div>';
 
   var CARD_FILTERS = {
     'all':         function(r) { return true; },
     'pass':        function(r) { return  r.passOverall && r.passST && r.passMT && r.passDT1 && r.passDTScale; },
-    'nonCompliant':function(r) { return !(r.passOverall && r.passST && r.passMT && r.passDT1 && r.passDTScale); },
     'failOverall': function(r) { return !r.passOverall; },
     'failST':      function(r) { return !r.passST; },
     'failMT':      function(r) { return !r.passMT; },
-    'failDT':      function(r) { return !r.passDT1 || !r.passDTScale; }
+    'failDT':      function(r) { return !r.passDT1 || !r.passDTScale; },
+    'issues1':     function(r) { return [!r.passOverall,!r.passST,!r.passMT,!r.passDT1,!r.passDTScale].filter(Boolean).length === 1; },
+    'issues2':     function(r) { return [!r.passOverall,!r.passST,!r.passMT,!r.passDT1,!r.passDTScale].filter(Boolean).length === 2; },
+    'issues3':     function(r) { return [!r.passOverall,!r.passST,!r.passMT,!r.passDT1,!r.passDTScale].filter(Boolean).length === 3; },
+    'issues4':     function(r) { return [!r.passOverall,!r.passST,!r.passMT,!r.passDT1,!r.passDTScale].filter(Boolean).length === 4; },
+    'issues5':     function(r) { return [!r.passOverall,!r.passST,!r.passMT,!r.passDT1,!r.passDTScale].filter(Boolean).length === 5; }
   };
   var CARD_LABELS = {
-    'all': 'All Sites', 'pass': 'Fully Compliant', 'nonCompliant': 'Non-Compliant',
-    'failOverall': 'Fail 80% Overall', 'failST': 'Fail 60% ST',
-    'failMT': 'No MT-only Tech', 'failDT': 'DT Requirement Issue'
+    'all': 'All Sites', 'pass': 'Fully Compliant',
+    'failOverall': 'Pass 80% Overall', 'failST': 'Pass 60% ST',
+    'failMT': 'MT Requirement Met', 'failDT': 'DT Requirement Met',
+    'issues1': '1 Issue', 'issues2': '2 Issues', 'issues3': '3 Issues',
+    'issues4': '4 Issues', 'issues5': '5 Issues'
   };
   var shown = all.filter(CARD_FILTERS[ovCardFilter] || CARD_FILTERS['all']);
+  // Apply sorting
+  var SORT_FNS = {
+    'name':     function(r) { return r.name.toLowerCase(); },
+    'n':        function(r) { return r.n; },
+    'pct':      function(r) { return r.pct; },
+    'overall':  function(r) { return r.passOverall ? 1 : 0; },
+    'st':       function(r) { return r.passST ? 1 : 0; },
+    'mt':       function(r) { return r.passMT ? 1 : 0; },
+    'dt1':      function(r) { return r.passDT1 ? 1 : 0; },
+    'dtscale':  function(r) { return r.passDTScale ? 1 : 0; },
+    'issues':   function(r) { return [!r.passOverall,!r.passST,!r.passMT,!r.passDT1,!r.passDTScale].filter(Boolean).length; }
+  };
+  var sfn = SORT_FNS[ovSortCol] || SORT_FNS['name'];
+  shown = shown.slice().sort(function(a, b) {
+    var av = sfn(a), bv = sfn(b);
+    if (av < bv) return -1 * ovSortDir;
+    if (av > bv) return  1 * ovSortDir;
+    return a.name.localeCompare(b.name);
+  });
   var activeLabel = CARD_LABELS[ovCardFilter] || 'All Sites';
   var filterChip = ovCardFilter !== 'all'
     ? '<span class="active-filter-chip">Showing: ' + activeLabel + ' (' + shown.length + ')' +
       ' &nbsp;<span onclick="setOvCardFilter(\'all\')" style="cursor:pointer;font-weight:700;">&times;</span></span>'
     : '<span style="font-size:0.83rem;color:#888">Click a card above to filter &nbsp;&middot;&nbsp; ' + shown.length + ' sites shown</span>';
+  function sortTh(label, key, title) {
+    var isActive = ovSortCol === key;
+    var arrow = isActive ? (ovSortDir === 1 ? ' &#9650;' : ' &#9660;') : ' &#8693;';
+    var arrowCls = isActive ? 'sort-arrow active' : 'sort-arrow';
+    var t = title ? ' title="' + title + '"' : '';
+    return '<th class="sort-th"' + t + ' onclick="setOvSort(\''+key+'\')">' + label +
+      '<span class="'+arrowCls+'">' + arrow + '</span></th>';
+  }
   var tableRows = shown.map(function(r) {
     var fails = [!r.passOverall, !r.passST, !r.passMT, !r.passDT1, !r.passDTScale].filter(Boolean).length;
     var chk = function(pass) { return pass ? '<span class="chk chk-pass">&#10003;</span>' : '<span class="chk chk-fail">&#10007;</span>'; };
+    var mtCell = r.mtWaived
+      ? '<span class="chk" title="Waived — all technicians are ST or DT" style="color:#0369a1">&#9432;</span>'
+      : chk(r.passMT);
     return '<tr>' +
       '<td><span class="site-link" onclick="goToSite(\'' + esc(r.name).replace(/'/g, "\\'") + '\')">&#128205; ' + esc(r.name) + '</span></td>' +
       '<td>' + r.n + '</td>' +
       '<td class="pct-cell" style="color:' + gc(r.pct) + '">' + r.pct + '%</td>' +
       '<td style="text-align:center">' + chk(r.passOverall) + '</td>' +
       '<td style="text-align:center">' + chk(r.passST)      + '</td>' +
-      '<td style="text-align:center">' + chk(r.passMT)      + '</td>' +
+      '<td style="text-align:center">' + mtCell              + '</td>' +
       '<td style="text-align:center">' + chk(r.passDT1)     + '</td>' +
       '<td style="text-align:center">' + chk(r.passDTScale) + '</td>' +
       '<td><span class="issues-pill issues-' + Math.min(fails,5) + '">' + (fails === 0 ? '&#10003; Pass' : fails + ' issue' + (fails > 1 ? 's' : '')) + '</span></td>' +
@@ -330,37 +393,43 @@ function renderOverview() {
   }).join('');
 
   document.getElementById('overviewContent').innerHTML =
+    networkToggle +
     typeToggle +
     summaryHtml +
     '<div class="ov-section">' +
-      '<h2>&#128202; Requirements Failure Rate Across All Sites</h2>' +
-      reqBarsHtml +
+      '<h2>&#9888;&#65039; Sites by Number of Issues</h2>' +
+      issueCardsHtml +
     '</div>' +
     '<div class="ov-section">' +
       '<h2>&#127970; ' + typeLabel + ' &mdash; Compliance Breakdown</h2>' +
       '<div class="ov-filter-row">' + filterChip + '</div>' +
       '<div class="ov-table-wrap"><table class="ov-table">' +
         '<thead class="ov-sticky-head"><tr>' +
-          '<th>Site</th><th>Techs</th><th>Overall %</th>' +
-          '<th title="80% qualified">80% &#9432;</th>' +
-          '<th title="60% as ST">60% ST &#9432;</th>' +
-          '<th title="At least 1 MT-only">MT &#9432;</th>' +
-          '<th title="At least 1 DT">DT &#9432;</th>' +
-          '<th title="Scaled DT count">DT Scale &#9432;</th>' +
-          '<th>Result</th>' +
+          sortTh('Site','name') +
+          sortTh('Techs','n') +
+          sortTh('Overall %','pct') +
+          sortTh('80%','overall','80% qualified') +
+          sortTh('60% ST','st','60% as ST') +
+          sortTh('MT','mt','At least 1 MT-only') +
+          sortTh('DT','dt1','At least 1 DT') +
+          sortTh('DT Scale','dtscale','Scaled DT count') +
+          sortTh('Result','issues') +
         '</tr></thead>' +
         '<tbody>' + tableRows + '</tbody>' +
       '</table></div>' +
     '</div>';
 }
 
-function statCard(bg, fg, val, label, filterKey) {
+function statCard(bg, fg, pctVal, countVal, label, filterKey) {
   var isActive = ovCardFilter === filterKey;
   var ring = isActive ? ';outline:3px solid #fff;outline-offset:-4px' : '';
   var cursor = 'cursor:pointer';
+  var pctDisplay = filterKey === 'all' ? countVal : pctVal + '%';
+  var subDisplay = filterKey === 'all' ? '' : '<div style="font-size:0.95rem;font-weight:600;opacity:0.75;margin-top:2px">' + countVal + ' sites</div>';
   return '<div class="ov-stat" style="background:' + bg + ';color:' + fg + ';' + cursor + ring + '"' +
     ' onclick="setOvCardFilter(\'' + filterKey + '\')" title="Click to filter table">' +
-    '<div class="ov-val">' + val + '</div>' +
+    '<div class="ov-val">' + pctDisplay + '</div>' +
+    subDisplay +
     '<div class="ov-lbl">' + label + '</div>' +
   '</div>';
 }
@@ -372,6 +441,17 @@ function setOvCardFilter(f) {
 
 function setOvTypeFilter(f) {
   ovTypeFilter = f;
+  renderOverview();
+}
+
+function setOvSort(col) {
+  if (ovSortCol === col) { ovSortDir = ovSortDir * -1; }
+  else { ovSortCol = col; ovSortDir = col === 'name' ? 1 : -1; }
+  renderOverview();
+}
+
+function setOvNetworkFilter(f) {
+  ovNetworkFilter = f;
   renderOverview();
 }
 
@@ -392,35 +472,131 @@ var QUAL_PREFIXES = [
   ['MBPCQMT','PC_MT'],['MBPCQST','PC_ST'],['MBPCQDT','PC_DT'],
   ['MBVQMT','Van_MT'],['MBVQST','Van_ST'],['MBVQDT','Van_DT']
 ];
-// ST pathway sub-course detection
-// Each pathway has mandatory e-learning + SVQ practical assessment(s)
-// Electrics (T3041Q): mandatory=T2342D, svq=T2132F
-// Engine   (T3044Q): mandatory=T2918D, svq=T2809F(diesel)/T2137F(gasoline-PC only)
-// Chassis  (T3046Q): mandatory=T2128E/T2179D/T2773D, svq=T2126F
-// Prereq: T3035Q (Systems Technician Basic Programme)
-var SUBCOURSE_MAP = [
-  // [codePrefix, pathway, stage, label]
-  ['T3035Q', 'basic',   'prereq',    'Basic Programme (T3035Q)'],
-  ['T2342D', 'elec',    'mandatory', 'Electrics Mandatory (T2342D)'],
-  ['T2132F', 'elec',    'svq',       'Electrics SVQ (T2132F)'],
-  ['T3041Q', 'elec',    'pathway',   'Electrics Pathway (T3041Q)'],
-  ['T2918D', 'engine',  'mandatory', 'Engine Mandatory (T2918D)'],
-  ['T2809F', 'engine',  'svq',       'Diesel SVQ (T2809F)'],
-  ['T2137F', 'engine',  'svq',       'Gasoline SVQ (T2137F)'],
-  ['T3044Q', 'engine',  'pathway',   'Engine Pathway (T3044Q)'],
-  ['T2128E', 'chassis', 'mandatory', 'Chassis Mandatory (T2128E)'],
-  ['T2179D', 'chassis', 'mandatory', 'Chassis Mandatory (T2179D)'],
-  ['T2773D', 'chassis', 'mandatory', 'Chassis Mandatory (T2773D)'],
-  ['T2126F', 'chassis', 'svq',       'Chassis SVQ (T2126F)'],
-  ['T3046Q', 'chassis', 'pathway',   'Chassis Pathway (T3046Q)']
+
+// ── Official MB network lists (sourced from Copy of MA's.xlsx) ────────────────
+// Names are matched exactly to PDP Course Data outlet names (column B)
+var MB_OFFICIAL_SITES = [
+  'Mercedes-Benz of Belfast','Mercedes-Benz of Portadown',
+  'Mercedes-Benz of Perth','Mercedes-Benz of Dundee','Mercedes-Benz of Aberdeen',
+  'Mercedes-Benz of Inverness','Mercedes-Benz of Grangemouth',
+  'Mercedes-Benz of Edinburgh','Mercedes-Benz of Coldstream',
+  'Mercedes-Benz of Edinburgh - East','Mercedes-Benz of Dunfermline (After Sales)',
+  'Mercedes-Benz of Giffnock','Mercedes-Benz of Glasgow',
+  'Mercedes-Benz of Ayr','Mercedes-Benz of Hamilton (After Sales)',
+  'Mercedes-Benz of Leeds','Mercedes-Benz of Bradford',
+  'Mercedes-Benz of Huddersfield','Mercedes-Benz of Wakefield',
+  'Mercedes-Benz of Southend','Mercedes-Benz of Chelmsford',
+  'Mercedes-Benz of Ipswich','Mercedes-Benz of Lakeside','Mercedes-Benz of Colchester',
+  'Mercedes-Benz of Liverpool','Mercedes-Benz of Cheshire Oaks',
+  'Mercedes-Benz of North Wales','Mercedes-Benz of Warrington','Mercedes-Benz of Southport',
+  'Mercedes-Benz of Nottingham','Mercedes-Benz of Derby','Mercedes-Benz of Leicester',
+  'Mercedes-Benz of Oxford','Mercedes-Benz of Stratford-upon-Avon','Mercedes-Benz of Coventry',
+  'Mercedes-Benz of Cambridge','Mercedes-Benz of Norwich','Mercedes-Benz of Peterborough',
+  "Mercedes-Benz of Bury St. Edmunds",'Mercedes-Benz of Kings Lynn',
+  'Mercedes-Benz of Stevenage',"Mercedes-Benz of Bishop's Stortford",
+  'Mercedes-Benz of Hertford','Mercedes-Benz of Hemel Hempstead',
+  'Mercedes-Benz of Blackburn','Mercedes-Benz of Blackpool',
+  'Mercedes-Benz of Bolton','Mercedes-Benz of Preston',
+  'Mercedes-Benz of Chichester','Mercedes-Benz of Portsmouth',
+  'Mercedes-Benz of Southampton','Mercedes-Benz of Winchester',
+  'Mercedes-Benz of Shrewsbury','Mercedes-Benz of Stafford',
+  'Mercedes-Benz of Stoke','Mercedes-Benz of Stourbridge',
+  'Mercedes-Benz of Wolverhampton','Mercedes-Benz of Worcester',
+  'Mercedes-Benz of Ashford','Mercedes-Benz of Maidstone',
+  'Mercedes-Benz of Tonbridge','Mercedes-Benz of Canterbury',
+  'Mercedes-Benz of Brighton','Mercedes-Benz of Eastbourne','Mercedes-Benz of Gatwick',
+  'Mercedes-Benz of Dorchester','Mercedes-Benz of Poole','Mercedes-Benz of Salisbury',
+  'Mercedes-Benz of Newbury','Mercedes-Benz of Basingstoke','Mercedes-Benz of Guildford',
+  'Mercedes-Benz of Hindhead (After Sales)','Mercedes-Benz of Farnborough (After Sales)',
+  'Mercedes-Benz of Epsom',
+  'Van Mossel Jacksons Guernsey','Van Mossel Jacksons Jersey',
+  'Van Mossel Jacksons Isle of Man','Van Mossel Esplanade Isle of Wight',
+  'Mercedes-Benz of Macclesfield','Mercedes-Benz of Stockport','Mercedes-Benz of Whitefield',
+  'Mercedes-Benz of Birmingham','Mercedes-Benz of Solihull','Mercedes-Benz of Solihull (After Sales)',
+  'Mercedes-Benz of Tamworth',
+  'Mercedes-Benz of Newcastle upon Tyne','Mercedes-Benz of Carlisle',
+  'Mercedes-Benz of Sunderland','Mercedes-Benz of Teesside',
+  'Mercedes-Benz of Milton Keynes','Mercedes-Benz of Bedford','Mercedes-Benz of Northampton',
+  'Mercedes-Benz of Bath','Mercedes-Benz of Bristol',
+  'Mercedes-Benz of Cheltenham & Gloucester','Mercedes-Benz of Swindon',
+  'Mercedes-Benz of Temple Fortune','Mercedes-Benz of Watford','Mercedes-Benz of Colindale',
+  'Mercedes-Benz of Loughton','Mercedes-Benz of Stratford (After Sales)',
+  'Mercedes-Benz of Heathrow (After Sales)','Mercedes-Benz of West London',
+  'Mercedes-Benz of Exeter','Mercedes-Benz of Plymouth',
+  'Mercedes-Benz of Taunton','Mercedes-Benz of Truro',
+  'Mercedes-Benz of Bridgend','Mercedes-Benz of Cardiff & Newport',
+  'Mercedes-Benz of Neyland','Mercedes-Benz of Swansea',
+  'Mercedes-Benz of Boston','Mercedes-Benz of Grimsby',
+  'Mercedes-Benz of Hull','Mercedes-Benz of Lincoln',
+  'Mercedes-Benz of York','Mercedes-Benz of Harrogate','Mercedes-Benz of Sheffield',
+  'Mercedes-Benz of Chesterfield','Mercedes-Benz of Doncaster',
+  'Mercedes-Benz of Croydon','Mercedes-Benz of Brooklands',
+  'Mercedes-Benz of Dartford','Mercedes-Benz of West Bromley (After Sales)',
+  'Mercedes-Benz of Ascot','Mercedes-Benz of Reading','Mercedes-Benz of Slough',
+  'Mercedes-Benz of Slough (After Sales)','Mercedes-Benz of Aylesbury','Mercedes-Benz of Beaconsfield',
+  // Van network retailers
+  'Arthur Spriggs & Sons - Tewkesbury',
+  'Bell Truck & Van (Billingham)','Bell Truck & Van (Spennymoor)','Bell Truck and Van - Stockton',
+  'BLS Truck and Van - Aberdeen',
+  'Ciceley Commercials - Blackburn','Ciceley Commercials - Bolton','Ciceley Commercials - Carlisle','Ciceley Commercials - Dumfries',
+  'Ciceley Bolton Mercedes-Benz Authorised Repairer',
+  'Euro Commercials - Avonmouth','Euro Commercials - Cardiff','Euro Commercials - Exeter',
+  'Euro Commercials - Highbridge','Euro Commercials - Newport',
+  'Euro Commercials - Swansea','Euro Commercials - Service Factory Swansea',
+  'eStar Truck and Van - Deeside','eStar Truck and Van - Manchester','eStar Truck and Van - Stoke',
+  'eStar Truck Service (Knowsley)','eStar Van Service - Knowsley',
+  'LSH Birmingham Parts Distribution Centre',
+  'Marshall Truck & Van (Croydon)','Marshall Truck and Van  - Southampton',
+  'Marshall Truck and Van - Andover','Marshall Truck and Van - Fareham','Marshall Van - Croydon',
+  'MBNI Truck and Van - Dungannon','MBNI Truck and Van - Newtownabbey',
+  'MBNI Dungannon Mercedes-Benz Authorised Repairer',
+  'Mercedes-Benz Van Centre - Ipswich','Mercedes-Benz Van Centre - Newcastle','Mercedes-Benz Van Service - Thurrock',
+  'Mercedes-Benz of Exeter - Van Service','Mercedes-Benz of Plymouth - Van Service','Mercedes-Benz of Taunton - Van Service',
+  'Mertrux Truck and Van - Derby','Mertrux Truck and Van - Leicester',
+  'Mertrux Truck and Van - Mansfield','Mertrux Truck and Van - Nottingham',
+  'Mertrux Mercedes-Benz Authorised Repairer',
+  'Midlands Truck and Van - Boston','Midlands Truck and Van - Coventry','Midlands Truck and Van - Dunstable',
+  'Midlands Truck and Van - Milton Keynes','Midlands Truck and Van - Peterborough',
+  'Midlands Truck and Van - Smethwick','Midlands Truck and Van - Wellingborough','Midlands Truck and Van - Wolverhampton',
+  'Northside Truck and Van - Bradford','Northside Truck and Van - Doncaster','Northside Truck and Van - Hull',
+  'Northside Truck and Van - Immingham','Northside Truck and Van - Leeds',
+  'Northside Truck and Van - Sheffield','Northside Truck and Van - York',
+  'Rossetts Commercials - Aldershot','Rossetts Commercials - Crawley','Rossetts Commercials - Eastbourne',
+  'Rossetts Commercials - Non-Retail Parts Hub - Crawley','Rossetts Commercials - Worthing',
+  'Rygor - Chilcompton','Rygor - Gloucester','Rygor - Heathrow','Rygor - Kidderminster',
+  'Rygor - Nuneaton','Rygor - Oxford','Rygor - Reading','Rygor - Swindon','Rygor - Westbury',
+  'Rygor Auto - Non-Retail Parts Hub - Heathrow',
+  'Rygor Heathrow Mercedes-Benz Authorised Repairer','Rygor Mercedes-Benz Authorised Repairer',
+  'SAGA Truck and Van - Ashford','SAGA Truck and Van - Dartford','SAGA Truck and Van - Hatfield',
+  'SAGA Truck and Van - Ipswich','SAGA Truck and Van - Norwich','SAGA Truck and Van - Sittingbourne',
+  'SAGA Truck and Van - Tonbridge','SAGA Truck and Van - Witham',
+  'Sandown Parts Distribution Centre','Sandown Van Centre - Poole',
+  'Sytner Colindale Trade Parts Centre',
+  'Western Commercial - Bellshill','Western Commercial - Dundee',
+  'Western Commercial - Edinburgh','Western Commercial - Glasgow'
 ];
-function getSubCourse(courseNo) {
+var MB_PARTNER_SITES = [
+  'Europa Mercedes-Benz Authorised Repairer',
+  'Regent Garage MB Authorised Repairer'
+];
+var MB_OFFICIAL_SET = new Set(MB_OFFICIAL_SITES);
+var MB_PARTNER_SET  = new Set(MB_PARTNER_SITES);
+// ─── ST Prerequisite pipeline course codes ────────────────────────────────
+// T3035Q = Systems Technician Basic Programme (enrolment triggers pipeline entry)
+// T0004F, T2121F, T2122F = follow-on assessments that must be PASSED to exit pipeline
+// Codes in the PDP file have suffixes e.g. T3035Q-UK.PC-1234, so we use prefix matching
+var PREREQ_ENROL_PREFIX = 'T3035Q';
+var PREREQ_PASS_PREFIXES = [
+  { key: 't0004f', prefix: 'T0004F' },
+  { key: 't2121',  prefix: 'T2121F' },
+  { key: 't2122',  prefix: 'T2122F' }
+];
+
+function getPrereqCourse(courseNo) {
   var s = String(courseNo || '').trim().toUpperCase();
-  var brand = (s.indexOf('.VN') >= 0) ? 'Van' : 'PC';
-  for (var i = 0; i < SUBCOURSE_MAP.length; i++) {
-    if (s.indexOf(SUBCOURSE_MAP[i][0]) === 0) {
-      return { pathway: SUBCOURSE_MAP[i][1], stage: SUBCOURSE_MAP[i][2], brand: brand };
-    }
+  if (s.indexOf(PREREQ_ENROL_PREFIX) === 0) return 'enrol';
+  for (var i = 0; i < PREREQ_PASS_PREFIXES.length; i++) {
+    if (s.indexOf(PREREQ_PASS_PREFIXES[i].prefix) === 0) return PREREQ_PASS_PREFIXES[i].key;
   }
   return null;
 }
@@ -534,20 +710,18 @@ function parseExcelRows(rows) {
       data[outlet].push({ name: (firstName + ' ' + lastName).trim(), job: job, is_tech: isTech, quals: [], qualDates: {}, qual_since: null });
     }
     var person = data[outlet][personIdx[pKey]];
-    // Track ST pathway sub-courses for all statuses (Passed + Enrolled)
-    if (courseNo && (regStatus === 'Passed' || regStatus === 'Enrolled' || regStatus === 'In Progress')) {
-      var sc = getSubCourse(courseNo);
-      if (sc) {
-        if (!person.stProgress) person.stProgress = {};
-        var scKey = sc.pathway + '_' + sc.brand;
-        if (!person.stProgress[scKey]) person.stProgress[scKey] = { mandatory: '', prereq: '', svq: '', pathway: '' };
-        var stageName = (sc.stage === 'prereq') ? 'prereq' :
-                        (sc.stage === 'mandatory') ? 'mandatory' :
-                        (sc.stage === 'svq') ? 'svq' : 'pathway';
-        var cur = person.stProgress[scKey][stageName] || '';
-        var rankMap = { '': 0, 'In Progress': 1, 'Enrolled': 2, 'Passed': 3 };
-        if ((rankMap[regStatus] || 0) > (rankMap[cur] || 0)) {
-          person.stProgress[scKey][stageName] = regStatus;
+    // Track T3035Q enrolment and T0004F/T2121/T2122 pass status for pipeline
+    if (courseNo) {
+      var pc = getPrereqCourse(courseNo);
+      if (pc) {
+        if (!person.prereqProgress) person.prereqProgress = { t3035q: '', t0004f: false, t2121: false, t2122: false };
+        if (pc === 'enrol') {
+          var rankMap = { '': 0, 'In Progress': 1, 'Enrolled': 2, 'Passed': 3 };
+          if ((rankMap[regStatus] || 0) > (rankMap[person.prereqProgress.t3035q] || 0)) {
+            person.prereqProgress.t3035q = regStatus;
+          }
+        } else if (regStatus === 'Passed') {
+          person.prereqProgress[pc] = true;
         }
       }
     }
@@ -570,8 +744,7 @@ function parseExcelRows(rows) {
   return data;
 }
 // ─── ST Pipeline ─────────────────────────────────────────────────────────────
-var pipelineFilter = 'all'; // 'all' | '2' | '1'
-var pipelineBrand  = 'all'; // 'all' | 'PC' | 'Van'
+var pipelineFilter = 'all'; // 'all' | '0' | '1' | '2'
 
 function renderPipeline() {
   var el = document.getElementById('pipelineContent');
@@ -579,132 +752,108 @@ function renderPipeline() {
     el.innerHTML = '<div class="empty-state" style="padding:80px 20px"><p>No data loaded.</p></div>';
     return;
   }
-  // Score 0-6: 0=none,1=prereq,2=mand enrolled,3=mand done,4=svq enrolled,5=svq done,6=complete
-  function pathwayScore(sp, pathway, brand) {
-    if (!sp) return 0;
-    var d = sp[pathway + '_' + brand];
-    if (!d) return 0;
-    if (d.pathway === 'Passed')                                    return 6;
-    if (d.svq === 'Passed')                                        return 5;
-    if (d.svq === 'Enrolled' || d.svq === 'In Progress')           return 4;
-    if (d.mandatory === 'Passed')                                  return 3;
-    if (d.mandatory === 'Enrolled' || d.mandatory === 'In Progress') return 2;
-    if (d.prereq)                                                  return 1;
-    return 0;
-  }
-  var SCORE_LABEL = ['None','Prereq','Mand (enrolled)','Mand done','SVQ enrolled','SVQ passed','Complete'];
-  var SCORE_CLS   = ['mod-miss','mod-miss','mod-miss','mod-enrol','mod-enrol','mod-done','mod-done'];
-  function scoreDot(score, letter, title) {
-    var cls = SCORE_CLS[score] || 'mod-miss';
-    return '<span class="mod-dot ' + cls + '" title="' + title + ': ' + (SCORE_LABEL[score]||'None') + '">' + letter + '</span>';
-  }
+
+  // Candidates: techs enrolled on T3035Q who have NOT passed all three follow-on courses
   var candidates = [];
   Object.keys(SITE_DATA).sort().forEach(function(site) {
     SITE_DATA[site].forEach(function(p) {
       if (!p.is_tech) return;
       if (hideAppr && p.job === 'Apprentice Technician') return;
-      var sp = p.stProgress || {};
-      ['PC','Van'].forEach(function(brand) {
-        var stQual = brand === 'PC' ? 'PC_ST' : 'Van_ST';
-        var dtQual = brand === 'PC' ? 'PC_DT' : 'Van_DT';
-        if (p.quals.indexOf(stQual) >= 0 || p.quals.indexOf(dtQual) >= 0) return;
-        var eScore  = pathwayScore(sp, 'elec',    brand);
-        var enScore = pathwayScore(sp, 'engine',  brand);
-        var cScore  = pathwayScore(sp, 'chassis', brand);
-        var basicScore = (sp['basic_' + brand] && sp['basic_' + brand].prereq) ? 1 : 0;
-        var completeCount = (eScore>=6?1:0)+(enScore>=6?1:0)+(cScore>=6?1:0);
-        var maxScore = Math.max(basicScore, eScore, enScore, cScore);
-        if (maxScore === 0) return;
-        candidates.push({ site:site, name:p.name, job:p.job, brand:brand,
-          eScore:eScore, enScore:enScore, cScore:cScore,
-          completeCount:completeCount, maxScore:maxScore });
+      var pp = p.prereqProgress;
+      if (!pp || !pp.t3035q) return; // never enrolled on T3035Q
+      // Only show if at least one of the three pass-courses is not yet passed
+      if (pp.t0004f && pp.t2121 && pp.t2122) return;
+      var passCount = (pp.t0004f ? 1 : 0) + (pp.t2121 ? 1 : 0) + (pp.t2122 ? 1 : 0);
+      candidates.push({
+        site: site, name: p.name, job: p.job,
+        t3035q: pp.t3035q,
+        t0004f: pp.t0004f, t2121: pp.t2121, t2122: pp.t2122,
+        passCount: passCount
       });
     });
   });
-  var nComplete2 = candidates.filter(function(c){return c.completeCount>=2;}).length;
-  var nComplete1 = candidates.filter(function(c){return c.completeCount===1;}).length;
-  var nSvq       = candidates.filter(function(c){return c.completeCount===0&&c.maxScore>=4;}).length;
-  var nMandatory = candidates.filter(function(c){return c.completeCount===0&&c.maxScore>=2&&c.maxScore<4;}).length;
+
+  var n0 = candidates.filter(function(c) { return c.passCount === 0; }).length;
+  var n1 = candidates.filter(function(c) { return c.passCount === 1; }).length;
+  var n2 = candidates.filter(function(c) { return c.passCount === 2; }).length;
+
   var shown = candidates.filter(function(c) {
-    if (pipelineFilter==='2'   && c.completeCount<2)              return false;
-    if (pipelineFilter==='1'   && c.completeCount!==1)            return false;
-    if (pipelineFilter==='svq' && (c.completeCount>0||c.maxScore<4)) return false;
-    if (pipelineFilter==='man' && (c.completeCount>0||c.maxScore<2||c.maxScore>=4)) return false;
-    if (pipelineBrand!=='all'  && c.brand!==pipelineBrand)        return false;
+    if (pipelineFilter === '0' && c.passCount !== 0) return false;
+    if (pipelineFilter === '1' && c.passCount !== 1) return false;
+    if (pipelineFilter === '2' && c.passCount !== 2) return false;
     return true;
   });
-  shown.sort(function(a,b){
-    if (b.completeCount!==a.completeCount) return b.completeCount-a.completeCount;
-    if (b.maxScore!==a.maxScore)           return b.maxScore-a.maxScore;
-    var s=a.site.localeCompare(b.site); return s!==0?s:a.name.localeCompare(b.name);
+  shown.sort(function(a, b) {
+    if (b.passCount !== a.passCount) return b.passCount - a.passCount;
+    var s = a.site.localeCompare(b.site);
+    return s !== 0 ? s : a.name.localeCompare(b.name);
   });
-  var rows = shown.map(function(c) {
-    var brandBadge = c.brand==='PC'
-      ? '<span class="brand-badge badge-pc">PC</span>'
-      : '<span class="brand-badge badge-van">Van</span>';
-    var progLabel;
-    if (c.completeCount>=2) progLabel='<span class="issues-pill prog-2">'+c.completeCount+' / 3 done</span>';
-    else if (c.completeCount===1) progLabel='<span class="issues-pill prog-1">1 / 3 done</span>';
-    else if (c.maxScore>=4) progLabel='<span class="issues-pill" style="background:#dbeafe;color:#1d4ed8">SVQ stage</span>';
-    else progLabel='<span class="issues-pill" style="background:#f3f4f6;color:#555">Mandatory stage</span>';
-    var missing=[];
-    if (c.eScore<6) missing.push('Electrics');
-    if (c.enScore<6) missing.push('Engine');
-    if (c.cScore<6) missing.push('Chassis');
-    return '<tr>'+
-      '<td><span class="site-link" onclick="goToSite(\''+esc(c.site).replace(/'/g,"\\'")+'\')">&#128205; '+esc(c.site)+'</span></td>'+
-      '<td>'+esc(c.name)+'</td><td>'+esc(c.job)+'</td><td>'+brandBadge+'</td>'+
-      '<td>'+progLabel+'</td>'+
-      '<td style="text-align:center">'+scoreDot(c.eScore,'E','Electrics (T3041Q)')+scoreDot(c.enScore,'En','Engine (T3044Q)')+scoreDot(c.cScore,'C','Chassis (T3046Q)')+'</td>'+
-      '<td style="color:#888;font-size:0.82rem">'+esc(missing.join(', '))+'</td>'+
+
+  function statusPill(status) {
+    var bg = status === 'Passed' ? '#dcfce7' : status === 'Enrolled' ? '#fef9c3' : '#e0f2fe';
+    var co = status === 'Passed' ? '#166534' : status === 'Enrolled' ? '#854d0e' : '#0369a1';
+    return '<span style="display:inline-block;padding:2px 8px;border-radius:12px;font-size:0.75rem;font-weight:700;background:' + bg + ';color:' + co + '">' + status + '</span>';
+  }
+  function chkCell(passed) {
+    return passed
+      ? '<span style="color:#16a34a;font-size:1.1rem">&#10003;</span>'
+      : '<span style="color:#dc2626;font-size:1.1rem">&#10007;</span>';
+  }
+
+  var filterBtn = function(val, label) {
+    return '<button class="fb' + (pipelineFilter === val ? ' active' : '') + '" onclick="setPipelineFilter(\'' + val + '\')">'
+      + label + '</button>';
+  };
+
+  var tableRows = shown.map(function(c) {
+    return '<tr>' +
+      '<td><span class="site-link" onclick="goToSite(\'' + esc(c.site).replace(/'/g, "\\'") + '\')">&#128205; ' + esc(c.site) + '</span></td>' +
+      '<td>' + esc(c.name) + '</td>' +
+      '<td>' + esc(c.job) + '</td>' +
+      '<td style="text-align:center">' + statusPill(c.t3035q) + '</td>' +
+      '<td style="text-align:center">' + chkCell(c.t0004f) + '</td>' +
+      '<td style="text-align:center">' + chkCell(c.t2121)  + '</td>' +
+      '<td style="text-align:center">' + chkCell(c.t2122)  + '</td>' +
     '</tr>';
   }).join('');
-  var filterBtn=function(val,label){return '<button class="fb'+(pipelineFilter===val?' active':'')+'" onclick="setPipelineFilter(\''+val+'\')">'+label+'</button>';};
-  var brandBtn=function(val,label){return '<button class="fb'+(pipelineBrand===val?' active':'')+'" onclick="setPipelineBrand(\''+val+'\')">'+label+'</button>';};
-  el.innerHTML=
-    '<div class="pipe-summary">'+
-      '<div class="pipe-stat" style="background:#000;color:#fff"><div class="ps-val">'+candidates.length+'</div><div class="ps-lbl">Techs in Pipeline</div></div>'+
-      '<div class="pipe-stat" style="background:#15803d;color:#fff"><div class="ps-val">'+nComplete2+'</div><div class="ps-lbl">2+ Pathways Complete</div></div>'+
-      '<div class="pipe-stat" style="background:#d97706;color:#fff"><div class="ps-val">'+nComplete1+'</div><div class="ps-lbl">1 Pathway Complete</div></div>'+
-      '<div class="pipe-stat" style="background:#1d4ed8;color:#fff"><div class="ps-val">'+nSvq+'</div><div class="ps-lbl">At SVQ Stage</div></div>'+
-      '<div class="pipe-stat" style="background:#6b7280;color:#fff"><div class="ps-val">'+nMandatory+'</div><div class="ps-lbl">At Mandatory Stage</div></div>'+
-    '</div>'+
-    '<div class="ov-section">'+
-      '<h2>&#128640; ST Qualification Pipeline</h2>'+
-      '<p style="font-size:0.83rem;color:#666;margin-bottom:6px">Technicians without ST/DT who have activity on any ST pathway sub-course. '+
-      'Each pathway requires mandatory e-learning then an SVQ practical assessment before the pathway award (T3041Q Electrics / T3044Q Engine / T3046Q Chassis).</p>'+
-      '<p style="font-size:0.78rem;color:#888;margin-bottom:14px">'+
-        '<span class="mod-dot mod-done" style="display:inline-block;vertical-align:middle">&#9679;</span> SVQ Passed / Pathway Complete &nbsp;&nbsp;'+
-        '<span class="mod-dot mod-enrol" style="display:inline-block;vertical-align:middle">&#9679;</span> Mandatory done / SVQ enrolled &nbsp;&nbsp;'+
-        '<span class="mod-dot mod-miss" style="display:inline-block;vertical-align:middle">&#9679;</span> Not started / Prereq / Mandatory enrolled'+
-      '</p>'+
-      '<div class="pipe-filter-row">'+
-        filterBtn('all','All ('+candidates.length+')')+
-        filterBtn('2','2+ complete ('+nComplete2+')')+
-        filterBtn('1','1 complete ('+nComplete1+')')+
-        filterBtn('svq','SVQ stage ('+nSvq+')')+
-        filterBtn('man','Mandatory stage ('+nMandatory+')')+
-        '<span style="margin-left:8px;color:#ccc">|</span>'+
-        brandBtn('all','All')+
-        brandBtn('PC','&#128664; PC')+
-        brandBtn('Van','&#128657; Van')+
-      '</div>'+
-      (shown.length===0
+
+  el.innerHTML =
+    '<div class="pipe-summary">' +
+      '<div class="pipe-stat" onclick="setPipelineFilter(\'all\')" style="background:#000;color:#fff' + (pipelineFilter==='all'?';outline:3px solid #aaa;outline-offset:-4px':'') + '"><div class="ps-val">' + candidates.length + '</div><div class="ps-lbl">Enrolled on T3035Q</div></div>' +
+      '<div class="pipe-stat" onclick="setPipelineFilter(\'0\')"   style="background:#dc2626;color:#fff' + (pipelineFilter==='0'  ?';outline:3px solid #fff;outline-offset:-4px':'') + '"><div class="ps-val">' + n0 + '</div><div class="ps-lbl">0 of 3 Passed</div></div>' +
+      '<div class="pipe-stat" onclick="setPipelineFilter(\'1\')"   style="background:#d97706;color:#fff' + (pipelineFilter==='1'  ?';outline:3px solid #fff;outline-offset:-4px':'') + '"><div class="ps-val">' + n1 + '</div><div class="ps-lbl">1 of 3 Passed</div></div>' +
+      '<div class="pipe-stat" onclick="setPipelineFilter(\'2\')"   style="background:#0369a1;color:#fff' + (pipelineFilter==='2'  ?';outline:3px solid #fff;outline-offset:-4px':'') + '"><div class="ps-val">' + n2 + '</div><div class="ps-lbl">2 of 3 Passed</div></div>' +
+    '</div>' +
+    '<div class="ov-section">' +
+      '<h2>&#128640; ST Prerequisite Pipeline &mdash; T3035Q Enrolled, Awaiting Pass Courses</h2>' +
+      '<p style="font-size:0.83rem;color:#666;margin-bottom:14px">' +
+        'Technicians who have enrolled on <strong>T3035Q</strong> (Systems Technician Basic Programme) but have not yet passed ' +
+        'all three required follow-on assessments: <strong>T0004F</strong>, <strong>T2121F</strong>, <strong>T2122F</strong>.' +
+      '</p>' +
+      '<div class="pipe-filter-row">' +
+        filterBtn('all', 'All (' + candidates.length + ')') +
+        filterBtn('0',   '0 passed (' + n0 + ')') +
+        filterBtn('1',   '1 passed (' + n1 + ')') +
+        filterBtn('2',   '2 passed (' + n2 + ')') +
+      '</div>' +
+      (shown.length === 0
         ? '<p style="padding:20px;color:#888;font-style:italic">No technicians match this filter.</p>'
-        : '<div class="pipe-table-wrap"><table class="pipe-table">'+
-            '<thead><tr>'+
-              '<th>Site</th><th>Name</th><th>Job Role</th><th>Brand</th>'+
-              '<th>Progress</th>'+
-              '<th title="E=Electrics(T3041Q) En=Engine(T3044Q) C=Chassis(T3046Q)">Pathways &#9432;</th>'+
-              '<th>Outstanding</th>'+
-            '</tr></thead>'+
-            '<tbody>'+rows+'</tbody>'+
-          '</table></div>')+
+        : '<div class="pipe-table-wrap"><table class="pipe-table">' +
+            '<thead><tr>' +
+              '<th>Site</th>' +
+              '<th>Name</th>' +
+              '<th>Job Role</th>' +
+              '<th style="text-align:center">T3035Q Status</th>' +
+              '<th style="text-align:center" title="Passed T0004F">T0004F</th>' +
+              '<th style="text-align:center" title="Passed T2121F">T2121F</th>' +
+              '<th style="text-align:center" title="Passed T2122F">T2122F</th>' +
+            '</tr></thead>' +
+            '<tbody>' + tableRows + '</tbody>' +
+          '</table></div>') +
     '</div>';
 }
 
 function setPipelineFilter(f) { pipelineFilter = f; renderPipeline(); }
-function setPipelineBrand(b)  { pipelineBrand  = b; renderPipeline(); }
 // ─────────────────────────────────────────────────────────────────────────────
 
 var QUAL_SHORT = {PC_MT:'PC MT', PC_ST:'PC ST', PC_DT:'PC DT', Van_MT:'Van MT', Van_ST:'Van ST', Van_DT:'Van DT'};
@@ -729,10 +878,17 @@ function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').re
 function bn(n) { return n === 0 ? '<span class="qual-count-zero">0</span>' : '<strong>' + n + '</strong>'; }
 
 function reqRow(pass, title, detail) {
-  var icon = pass === true ? '&#9989;' : pass === false ? '&#10060;' : '&#9888;&#65039;';
-  var cls  = pass === true ? 'pass'    : pass === false ? 'fail'     : 'warn';
+  var icon = pass === true    ? '&#9989;'
+           : pass === false   ? '&#10060;'
+           : pass === 'waived'? '&#8505;&#65039;'
+           : '&#9888;&#65039;';
+  var cls  = pass === true    ? 'pass'
+           : pass === false   ? 'fail'
+           : pass === 'waived'? ''
+           : 'warn';
+  var extraStyle = pass === 'waived' ? ' style="color:#0369a1"' : '';
   return '<div class="req-item"><span class="req-icon">' + icon + '</span>' +
-    '<div class="req-text ' + cls + '"><strong>' + title + '</strong><span style="opacity:.8">' + detail + '</span></div></div>';
+    '<div class="req-text ' + cls + '"' + extraStyle + '><strong>' + title + '</strong><span style="opacity:.8">' + detail + '</span></div></div>';
 }
 
 function brandCard(key, label, badgeCls, pfx) {
@@ -786,6 +942,15 @@ function renderSite() {
   var effectiveSTs = byRole.ST.length + surplusDTs;
   var stPct = techs.length ? Math.round(effectiveSTs / techs.length * 100) : 0;
   var mtOnlyCount = byRole.MT.length; // has MT but not ST or DT (by getPrimaryRole definition)
+  var mtWaived    = mtOnlyCount === 0 && byRole.none.length === 0 && (byRole.ST.length + byRole.DT.length) === techs.length && techs.length > 0;
+
+  var mtReqRow = mtWaived
+    ? reqRow('waived',
+        'At Least 1 MT-only Technician (MBPCQMT or MBVQMT, not also ST/DT)',
+        'Requirement waived — all ' + techs.length + ' technician(s) hold ST or DT qualifications; no MT floor needed.')
+    : reqRow(mtOnlyCount >= 1,
+        'At Least 1 MT-only Technician (MBPCQMT or MBVQMT, not also ST/DT)',
+        mtOnlyCount + ' MT-only technician(s) present');
 
   var reqs = [
     reqRow(techs.length ? pct >= 80 : null,
@@ -795,9 +960,7 @@ function renderSite() {
       '60% Counted as System Technician (MBPCQST / MBVQST)',
       effectiveSTs + ' of ' + techs.length + ' counted as ST &mdash; <strong>' + stPct + '%</strong> (target: &ge;60%)' +
         (surplusDTs > 0 ? ' &mdash; <em>includes ' + surplusDTs + ' surplus DT(s) reallocated to ST</em>' : '')),
-    reqRow(mtOnlyCount >= 1,
-      'At Least 1 MT-only Technician (MBPCQMT or MBVQMT, not also ST/DT)',
-      mtOnlyCount + ' MT-only technician(s) present'),
+    mtReqRow,
     reqRow(dtCount >= 1,
       'At Least 1 Diagnostic Technician (MBPCQDT or MBVQDT)',
       dtCount + ' DT(s) present'),
@@ -811,6 +974,10 @@ function renderSite() {
       ' surplus DT(s)</strong> exceed the scaled DT requirement of ' + dtNeeded +
       '. ' + (surplusDTs === 1 ? 'This technician has' : 'These technicians have') +
       ' been reallocated to count toward the 60% ST requirement.</div>'
+    : '';
+  var mtWaivedBox = mtWaived
+    ? '<div class="info-box" style="background:#eff6ff;border:1px solid #bfdbfe;color:#1e40af;">&#8505;&#65039; <strong>MT requirement waived</strong> — all ' +
+      techs.length + ' technician(s) at this site hold ST or DT qualifications. The minimum MT rule does not apply.</div>'
     : '';
   var apprBox = (hideAppr && apprCount > 0)
     ? '<div class="info-box" style="background:#f0f9ff;border:1px solid #bae6fd;color:#0369a1;">&#9432; <strong>' + apprCount +
@@ -830,7 +997,7 @@ function renderSite() {
       '<div class="stat-card"><div class="stat-value" style="color:#166534">' + effectiveSTs + '</div>' +
         '<div class="stat-label">Effective STs' + (surplusDTs > 0 ? ' <span title="Incl. ' + surplusDTs + ' surplus DT(s)">&#x2731;</span>' : '') + '</div></div>' +
     '</div>' +
-    apprBox + surplusBox +
+    apprBox + surplusBox + mtWaivedBox +
     '<div class="gauge-wrap"><h2>Overall Qualification Compliance &mdash; Official course codes only (Passed status)</h2>' +
       '<div class="gauge-outer">' +
         '<div class="t-line" style="left:80%"><span class="t-label">80% target</span></div>' +

@@ -2,6 +2,8 @@
 
 A self-contained HTML tool for analysing Mercedes-Benz dealer technician qualification compliance against the MB Dealer Standards requirements. No server, no installation — runs entirely in the browser.
 
+> **Last updated:** April 2026 — `Compliance_Tool_v6.html`
+
 ---
 
 ## Quick Start
@@ -10,6 +12,10 @@ A self-contained HTML tool for analysing Mercedes-Benz dealer technician qualifi
 2. Drop your **PDP Course Data `.xlsx`** file onto the load area, or click it to browse
 3. The tool parses the spreadsheet instantly in-browser — no data leaves your machine
 4. Use the three tabs (**Overview · By Site · ST Pipeline**) to explore compliance
+
+**Defaults on load:**
+- **Hide Apprentices** is ON — apprentice technicians are excluded from all counts
+- **MB Retailers Only** filter is active — Overview shows only sites in the hardcoded MB official network list (car + van)
 
 ---
 
@@ -61,6 +67,8 @@ Each site is assessed against five requirements:
 
 Each technician is counted in exactly **one** role using this priority: **DT > ST > MT > none**.
 
+> **MT Waiver rule:** If every technician at a site is counted as ST or DT (nobody has MT as their highest level), the MT requirement is automatically waived. These sites display a blue ℹ icon in the Overview table and a blue info box in the By Site checklist — they are not penalised for the MT rule.
+
 ---
 
 ## The Three Tabs
@@ -69,17 +77,26 @@ Each technician is counted in exactly **one** role using this priority: **DT > S
 
 A fleet-level view across all loaded sites.
 
-**Summary cards** (clickable — filter the table below):
-- Total sites · Fully compliant · Non-compliant · Fail 80% overall · Fail 60% ST · No MT-only tech · DT requirement issue
+**Network filter** (top of tab):
+- 🌐 All Sites — shows every site in the PDP data
+- ⭐ MB Retailers Only — shows only sites in the hardcoded MB official network list (default)
+- 🤝 Partners Only — shows only authorised repairer / partner sites
 
-**Requirement failure bars** — horizontal bar chart showing how many sites fail each of the five rules.
+**Summary cards** (top row, clickable — filter the table below):
+- **Total Sites** — all sites in the current network filter
+- **Fully Compliant** — pass all 5 rules (%)
+- **Pass 80%** — pass the overall qualified threshold (%)
+- **Pass 60% ST** — pass the ST count threshold (%)
+- **MT Met** — MT requirement met or waived (%)
+- **DT Met** — scaled DT requirement met (%)
 
-**Site table** — one row per site with:
-- Technician count · Overall % · Pass/fail tick for each of the 5 rules · Issues count
+**Issue-count cards** (second row, clickable — filter to sites with exactly N issues):
+- 1 Issue (green) · 2 Issues · 3 Issues · 4 Issues · 5 Issues (red)
 
-Click any site name to jump straight to its By Site detail view.
+**Site table** — one row per site, all columns sortable (click header):
+- Site name · N techs · Overall % · Fully compliant · ST 60% · MT · DT (1+) · DT (scaled) · Issues count
 
-**Car / Van filter** — classify sites by whether their technicians hold Car or Van roles, and filter accordingly.
+Click any site name to jump to its By Site detail view.
 
 ---
 
@@ -87,58 +104,82 @@ Click any site name to jump straight to its By Site detail view.
 
 Detailed compliance view for a single dealer.
 
-**Select a site** from the dropdown at the top.
+**Select a site** from the dropdown at the top. The **Hide Apprentices** toggle (in the load bar) applies globally across all tabs.
 
 Displays:
 - **Summary bar** — total techs, qualified count, overall %, DT count, ST %, MT-only count
-- **Compliance gauge** — colour-coded bar (green ≥ 80%, amber ≥ 60%, red < 60%) with the 80% and 60% threshold markers
+- **Compliance gauge** — colour-coded bar (green ≥ 80%, amber ≥ 60%, red < 60%) with threshold markers
 - **Brand breakdown cards** — separate MT / ST / DT counts for PC and Van
-- **Five requirements checklist** — ✅ / ❌ with explanatory detail for each rule
-- **Technician table** — every technician at the site with their job role, qualification tags, and how long they have held their highest qualification
+- **Five requirements checklist** — ✅ / ❌ / ℹ (waived) with explanatory detail for each rule
+- **Technician table** — every technician with their job role, qualification tags, and tenure in their highest qualification
 
 **Filter buttons** on the technician table: All · DT · ST · MT · Unqualified
-
-**Hide Apprentices toggle** — excludes Apprentice Technicians from all counts and tables when switched on (applies globally across all tabs).
 
 ---
 
 ### 3 · ST Pipeline
 
-Identifies technicians who are working toward the Systems Technician qualification but have not yet achieved it — your priority targets for completing ST training.
+Identifies technicians who are enrolled in the ST pathway but have not yet qualified — priority targets for completing ST training.
 
-**How it works:**
+**How it works (current course codes, verified April 2026):**
 
-The ST qualification (MBPCQST / MBVQST) is awarded only after completing all three pathways. Each pathway has two stages: mandatory e-learning followed by an SVQ practical assessment:
+| Course prefix | Role |
+|---------------|------|
+| `T3035Q-…` | Enrolment trigger — confirms technician has started the ST pathway |
+| `T0004F-…` | Pass course 1 |
+| `T2121F-…` | Pass course 2 |
+| `T2122F-…` | Pass course 3 |
 
-| Pathway | Award code | Mandatory e-learning | SVQ assessment |
-|---------|-----------|---------------------|----------------|
-| **Electrics** | T3041Q | T2342D | T2132F |
-| **Engine** | T3044Q | T2918D | T2809F (Diesel) / T2137F (Gasoline, PC only) |
-| **Chassis** | T3046Q | T2128E / T2179D / T2773D | T2126F |
-| **Basic prereq** | — | T3035Q | — |
+All four are matched by **prefix** (e.g. `T3035Q-UK.PC-1234`), not exact code, to handle suffix variants in PDP data.
 
-The pipeline tracks all of these sub-courses — not just the final pathway award codes — so technicians with partial progress show up correctly.
+**Summary cards** (clickable — filter the table):
+- **Enrolled** — total technicians with T3035Q found
+- **0 passed** — enrolled but no pass courses yet
+- **1 passed** — one of T0004F / T2121F / T2122F passed
+- **2 passed** — two pass courses passed (closest to qualifying)
 
-**Stage scoring per pathway (0–6):**
+**Pipeline table columns:**
+Site · Name · Job Role · T3035Q status (Enrolled / Passed pill) · T0004F ✓/✗ · T2121F ✓/✗ · T2122F ✓/✗
 
-| Score | Stage |
-|-------|-------|
-| 0 | No activity |
-| 1 | Basic prereq (T3035Q) enrolled/passed |
-| 2 | Mandatory course enrolled |
-| 3 | Mandatory course passed |
-| 4 | SVQ assessment enrolled |
-| 5 | SVQ assessment passed |
-| 6 | Full pathway award passed |
+**Filter buttons:** All · 0 passed · 1 passed · 2 passed
 
-**Pathway dots (E · En · C):**
-- 🟢 Green — SVQ passed or pathway complete
-- 🟡 Amber — Mandatory done or SVQ enrolled (closest to qualifying)
-- ⚫ Grey — Not started, prereq only, or mandatory enrolled
+---
 
-**Summary cards:** Total in pipeline · 2+ pathways complete · 1 pathway complete · At SVQ stage · At mandatory stage
+## Global Controls
 
-**Filter buttons:** All · 2+ complete · 1 complete · SVQ stage · Mandatory stage · PC / Van
+### Hide Apprentices Toggle
+
+Located in the **load bar** (always visible). When checked (default ON), Apprentice Technicians are excluded from all counts, tables, and pipeline listings across every tab.
+
+---
+
+## MB Network Site Lists
+
+The **MB Retailers Only** and **Partners Only** filters rely on two hardcoded arrays inside `Compliance_Tool_v6.html`:
+
+### `MB_OFFICIAL_SITES`
+~120 car retailer sites (`Mercedes-Benz of [City]`) plus ~68 van network sites including:
+Arthur Spriggs & Sons, Bell Truck & Van (all branches), BLS Truck & Van, Ciceley Commercials, Euro Commercials (all branches), eStar Truck & Van, LSH Birmingham PDC, Marshall Truck and Van (all branches), MBNI Truck & Van, Mercedes-Benz Van Centres (all branches), Mertrux Truck & Van (all branches), Midlands Truck & Van, Northside Truck & Van, Rossetts Commercials, Rygor Group (all branches), SAGA Truck & Van (all branches), Sandown Commercials, Sytner Colindale Vans, Western Commercial (all branches).
+
+### `MB_PARTNER_SITES`
+Authorised repairers not in the main retail network (currently 2):
+- `Europa Mercedes-Benz Authorised Repairer`
+- `Regent Garage MB Authorised Repairer`
+
+### Updating the site lists
+
+Site names must match the **exact spelling used by PDP** — including spacing and punctuation. For example, `Marshall Truck and Van  - Southampton` has a **double space** before the dash.
+
+To extract exact outlet names from a PDP export:
+```python
+import openpyxl
+wb = openpyxl.load_workbook('PDP Course Data - DATE.xlsx', read_only=True)
+ws = wb.active
+names = sorted({row[1].value for row in ws.iter_rows(min_row=2) if row[1].value})
+for n in names: print(n)
+```
+
+Then add/remove entries in the `MB_OFFICIAL_SITES` or `MB_PARTNER_SITES` arrays near the top of the `<script>` block.
 
 ---
 
@@ -167,41 +208,60 @@ The following job roles are recognised as technicians:
 
 | File | Description |
 |------|-------------|
-| `Compliance_Tool_v6.html` | **Current version** — use this one |
-| `Compliance_Tool_v5.html` | Previous version (pipeline showed 0 — replaced by v6) |
+| `Compliance_Tool_v6.html` | **Current version — use this one** |
+| `Compliance_Tool_v5.html` | Previous version (ST Pipeline showed 0 — course code matching broken) |
+| `Compliance_Tool_v4.html` | Earlier version |
 | `Compliance_Tool_v3.html` | Earlier version |
-| `Technician_Compliance_Tool.html` | Build output (same as latest version) |
+| `Compliance_Tool_v2.html` | Earlier version |
+| `Technician_Compliance_Tool.html` | Older build output |
 | `README.md` | This file |
 
 ---
 
-## Rebuilding / Modifying
+## Key Implementation Details (for future edits)
 
-The tool is generated from **`/tmp/build3.py`** (Python 3, no dependencies):
+All logic lives in the single `<script>` block of `Compliance_Tool_v6.html`. Approximate section map:
 
-```bash
-python3 /tmp/build3.py
+| Section | Key functions / variables |
+|---------|--------------------------|
+| **Global state** | `hideAppr`, `ovNetworkFilter`, `ovSortCol`, `ovSortDir`, `pipelineFilter` |
+| **Site lists** | `MB_OFFICIAL_SITES`, `MB_PARTNER_SITES` |
+| **Data parsing** | `parseExcelRows` — reads xlsx rows into `window.allRows`; builds `prereqProgress` per technician |
+| **Compliance logic** | `siteCompliance(rows)` — returns pass/fail flags including `mtWaived` |
+| **Overview render** | `renderOverview()`, `statCard()`, `sortTh()`, `setOvSort()`, `setOvCardFilter()`, `setOvNetworkFilter()` |
+| **By Site render** | `renderSite()`, `reqRow()`, `brandCard()` |
+| **Pipeline render** | `renderPipeline()`, `setPipelineFilter()` |
+| **Global toggle** | `toggleAppr()` — calls all three render functions |
+
+**Course code matching** uses `indexOf` prefix matching because PDP codes carry a suffix (e.g. `T3035Q-UK.PC-1234`):
+```js
+s.indexOf('T3035Q') === 0   // enrolment trigger
+s.indexOf('T0004F') === 0   // pass course 1
+s.indexOf('T2121F') === 0   // pass course 2
+s.indexOf('T2122F') === 0   // pass course 3
 ```
 
-Output path: the `Dealer standards/` folder as `Technician_Compliance_Tool.html`.
-
-Key sections in `build3.py`:
-
-| Lines (approx) | Section |
-|----------------|---------|
-| 1–160 | CSS styles |
-| 160–370 | Overview rendering (`renderOverview`, `siteCompliance`) |
-| 370–415 | Data constants — `TECH_JOBS_SET`, `QUAL_PREFIXES`, `SUBCOURSE_MAP` |
-| 415–560 | Excel parsing — `parseExcelRows`, `getSubCourse`, `getQual` |
-| 560–700 | ST Pipeline — `renderPipeline` |
-| 700–870 | By Site rendering — `renderSite`, `brandCard` |
-| 870–952 | HTML scaffold, `<head>`, SheetJS CDN link |
+**Qualification prefix matching** for existing quals (e.g. `MBPCQST`, `MBVQDT`):
+```js
+QUAL_PREFIXES.forEach(p => { if (code.startsWith(p)) ... })
+```
 
 ---
 
 ## Known Limitations
 
-- **Internet required on first load** — SheetJS is loaded from CDN (`cdn.sheetjs.com`). Once the browser has cached it, offline use works.
+- **Internet required on first load** — SheetJS is loaded from CDN (`cdn.sheetjs.com`). Once cached, offline use works.
 - **First sheet only** — the tool always reads the first worksheet in the workbook.
-- **Column positions are fixed** — if MB changes the PDP export format (column order), the column index constants in `parseExcelRows` will need updating.
-- **Brand detection for Van** — a course is treated as Van-brand if its course code contains `.VN`; otherwise it is treated as PC. If this convention changes in a future PDP export, update `getSubCourse()` and `getQual()`.
+- **Column positions are fixed** — if MB changes the PDP export format, update the column index constants in `parseExcelRows`.
+- **Site name matching is exact** — the network filter compares outlet names character-for-character. Any PDP formatting change for a site name will cause it to fall outside the MB Retailers filter until the array is updated.
+- **ST Pipeline course codes** — the four codes (`T3035Q`, `T0004F`, `T2121F`, `T2122F`) were verified against the April 2026 PDP export. If MB introduce new pathway codes these will need adding to `parseExcelRows` and `renderPipeline`.
+
+---
+
+## Change History
+
+| Version | Key changes |
+|---------|-------------|
+| v6 | Sortable Overview league table (all 9 columns); MT waiver rule; MB network filter (All / MB Retailers / Partners) with ~190 hardcoded car + van sites; ST Pipeline rebuilt with T3035Q/T0004F/T2121F/T2122F prefix matching; Overview cards redesigned (% large + count, compliant framing); bar chart replaced with 5 clickable issue-count cards; global apprentice toggle moved to load bar (default ON); pipeline summary cards clickable; default network filter = MB Retailers Only |
+| v5 | Pipeline present but showed 0 matches — bare equality course code matching never fired |
+| v2–v4 | Iterative early versions |
