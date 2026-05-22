@@ -183,8 +183,8 @@ var currentTechs = [];
   document.getElementById('overviewContent').innerHTML =
     '<div class="empty-state" style="padding:80px 20px">'
     + '<div style="font-size:2.5rem;margin-bottom:16px">&#128196;</div>'
-    + '<p style="font-size:1.1rem;font-weight:600;color:#333;margin-bottom:8px">No data loaded</p>'
-    + '<p style="color:#999;font-size:0.9rem">Drop the PDP Course Data .xlsx file into the box above, or click it to browse.</p>'
+    + '<p style="font-size:1.1rem;font-weight:600;color:#dde1f0;margin-bottom:8px">No data loaded</p>'
+    + '<p style="color:#6b7499;font-size:0.9rem">Drop the PDP Course Data .xlsx file into the box above, or click it to browse.</p>'
     + '</div>';
 })();
 
@@ -346,12 +346,12 @@ function renderOverview() {
 
   var summaryHtml =
     '<div class="ov-summary">' +
-      statCard('#000',    '#fff', pct(total),        total,        'Total Sites',              'all') +
-      statCard('#16a34a', '#fff', pct(nFullPass),    nFullPass,    'Fully Compliant',          'pass') +
-      statCard('#d97706', '#fff', pct(nPassOverall), nPassOverall, 'Pass 80% Overall',         'failOverall') +
-      statCard('#7e22ce', '#fff', pct(nPassST),      nPassST,      'Pass 60% ST',              'failST') +
-      statCard('#0369a1', '#fff', pct(nPassMT),      nPassMT,      'MT Requirement Met',       'failMT') +
-      statCard('#9a3412', '#fff', pct(nPassDT),      nPassDT,      'DT Requirement Met',       'failDT') +
+      statCard('#1e2235', '#dde1f0', pct(total),        total,        'Total Sites',              'all') +
+      statCard('#065f46', '#34d399', pct(nFullPass),    nFullPass,    'Fully Compliant',          'pass') +
+      statCard('#78350f', '#fbbf24', pct(nPassOverall), nPassOverall, 'Pass 80% Overall',         'failOverall') +
+      statCard('#3b0764', '#c084fc', pct(nPassST),      nPassST,      'Pass 60% ST',              'failST') +
+      statCard('#0c2d4a', '#60a5fa', pct(nPassMT),      nPassMT,      'MT Requirement Met',       'failMT') +
+      statCard('#7c2d12', '#fb923c', pct(nPassDT),      nPassDT,      'DT Requirement Met',       'failDT') +
     '</div>';
 
   // Issue-count breakdown cards
@@ -419,7 +419,7 @@ function renderOverview() {
   var filterChip = ovCardFilter !== 'all'
     ? '<span class="active-filter-chip">Showing: ' + activeLabel + ' (' + shown.length + ')' +
       ' &nbsp;<span onclick="setOvCardFilter(\'all\')" style="cursor:pointer;font-weight:700;">&times;</span></span>'
-    : '<span style="font-size:0.83rem;color:#888">Click a card above to filter &nbsp;&middot;&nbsp; ' + shown.length + ' sites shown</span>';
+    : '<span style="font-size:0.83rem;color:#6b7499">Click a card above to filter &nbsp;&middot;&nbsp; ' + shown.length + ' sites shown</span>';
   function sortTh(label, key, title) {
     var isActive = ovSortCol === key;
     var arrow = isActive ? (ovSortDir === 1 ? ' &#9650;' : ' &#9660;') : ' &#8693;';
@@ -432,7 +432,7 @@ function renderOverview() {
     var fails = [!r.passOverall, !r.passST, !r.passMT, !r.passDT1, !r.passDTScale].filter(Boolean).length;
     var chk = function(pass) { return pass ? '<span class="chk chk-pass">&#10003;</span>' : '<span class="chk chk-fail">&#10007;</span>'; };
     var mtCell = r.mtWaived
-      ? '<span class="chk" title="Waived — all technicians are ST or DT" style="color:#0369a1">&#9432;</span>'
+      ? '<span class="chk" title="Waived — all technicians are ST or DT" style="color:#60a5fa">&#9432;</span>'
       : chk(r.passMT);
     return '<tr>' +
       '<td><span class="site-link" onclick="goToSite(\'' + esc(r.name).replace(/'/g, "\\'") + '\')">&#128205; ' + esc(r.name) + '</span></td>' +
@@ -845,14 +845,14 @@ function renderPipeline() {
   });
 
   function statusPill(status) {
-    var bg = status === 'Passed' ? '#dcfce7' : status === 'Enrolled' ? '#fef9c3' : '#e0f2fe';
-    var co = status === 'Passed' ? '#166534' : status === 'Enrolled' ? '#854d0e' : '#0369a1';
+    var bg = status === 'Passed' ? '#14372a' : status === 'Enrolled' ? '#3b2e08' : '#0c2d4a';
+    var co = status === 'Passed' ? '#4ade80' : status === 'Enrolled' ? '#fbbf24' : '#60a5fa';
     return '<span style="display:inline-block;padding:2px 8px;border-radius:12px;font-size:0.75rem;font-weight:700;background:' + bg + ';color:' + co + '">' + status + '</span>';
   }
   function chkCell(passed) {
     return passed
-      ? '<span style="color:#16a34a;font-size:1.1rem">&#10003;</span>'
-      : '<span style="color:#dc2626;font-size:1.1rem">&#10007;</span>';
+      ? '<span style="color:#34d399;font-size:1.1rem">&#10003;</span>'
+      : '<span style="color:#f87171;font-size:1.1rem">&#10007;</span>';
   }
 
   var filterBtn = function(val, label) {
@@ -874,14 +874,14 @@ function renderPipeline() {
 
   el.innerHTML =
     '<div class="pipe-summary">' +
-      '<div class="pipe-stat" onclick="setPipelineFilter(\'all\')" style="background:#000;color:#fff' + (pipelineFilter==='all'?';outline:3px solid #aaa;outline-offset:-4px':'') + '"><div class="ps-val">' + candidates.length + '</div><div class="ps-lbl">Enrolled on T3035Q</div></div>' +
+      '<div class="pipe-stat" onclick="setPipelineFilter(\'all\')" style="background:#1e2235;color:#fff' + (pipelineFilter==='all'?';outline:3px solid #4f6ef7;outline-offset:-4px':'') + '"><div class="ps-val">' + candidates.length + '</div><div class="ps-lbl">Enrolled on T3035Q</div></div>' +
       '<div class="pipe-stat" onclick="setPipelineFilter(\'0\')"   style="background:#dc2626;color:#fff' + (pipelineFilter==='0'  ?';outline:3px solid #fff;outline-offset:-4px':'') + '"><div class="ps-val">' + n0 + '</div><div class="ps-lbl">0 of 3 Passed</div></div>' +
       '<div class="pipe-stat" onclick="setPipelineFilter(\'1\')"   style="background:#d97706;color:#fff' + (pipelineFilter==='1'  ?';outline:3px solid #fff;outline-offset:-4px':'') + '"><div class="ps-val">' + n1 + '</div><div class="ps-lbl">1 of 3 Passed</div></div>' +
       '<div class="pipe-stat" onclick="setPipelineFilter(\'2\')"   style="background:#0369a1;color:#fff' + (pipelineFilter==='2'  ?';outline:3px solid #fff;outline-offset:-4px':'') + '"><div class="ps-val">' + n2 + '</div><div class="ps-lbl">2 of 3 Passed</div></div>' +
     '</div>' +
     '<div class="ov-section">' +
       '<h2>&#128640; ST Prerequisite Pipeline &mdash; T3035Q Enrolled, Awaiting Pass Courses</h2>' +
-      '<p style="font-size:0.83rem;color:#666;margin-bottom:14px">' +
+      '<p style="font-size:0.83rem;color:#6b7499;margin-bottom:14px">' +
         'Technicians who have enrolled on <strong>T3035Q</strong> (Systems Technician Basic Programme) but have not yet passed ' +
         'all three required follow-on assessments: <strong>T0004F</strong>, <strong>T2121F</strong>, <strong>T2122F</strong>.' +
       '</p>' +
@@ -892,7 +892,7 @@ function renderPipeline() {
         filterBtn('2',   '2 passed (' + n2 + ')') +
       '</div>' +
       (shown.length === 0
-        ? '<p style="padding:20px;color:#888;font-style:italic">No technicians match this filter.</p>'
+        ? '<p style="padding:20px;color:#4a5070;font-style:italic">No technicians match this filter.</p>'
         : '<div class="pipe-table-wrap"><table class="pipe-table">' +
             '<thead><tr>' +
               '<th>Site</th>' +
@@ -927,7 +927,7 @@ function getPrimaryRole(quals) {
   return 'none';
 }
 
-function gc(p) { return p >= 80 ? '#16a34a' : p >= 60 ? '#d97706' : '#dc2626'; }
+function gc(p) { return p >= 80 ? '#34d399' : p >= 60 ? '#fbbf24' : '#f87171'; }
 function sc(p) { return p >= 80 ? 'green' : p >= 60 ? 'amber' : 'red'; }
 function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 function bn(n) { return n === 0 ? '<span class="qual-count-zero">0</span>' : '<strong>' + n + '</strong>'; }
@@ -941,7 +941,7 @@ function reqRow(pass, title, detail) {
            : pass === false   ? 'fail'
            : pass === 'waived'? ''
            : 'warn';
-  var extraStyle = pass === 'waived' ? ' style="color:#0369a1"' : '';
+  var extraStyle = pass === 'waived' ? ' style="color:#60a5fa"' : '';
   return '<div class="req-item"><span class="req-icon">' + icon + '</span>' +
     '<div class="req-text ' + cls + '"' + extraStyle + '><strong>' + title + '</strong><span style="opacity:.8">' + detail + '</span></div></div>';
 }
@@ -1025,17 +1025,17 @@ function renderSite() {
   ];
 
   var surplusBox = surplusDTs > 0
-    ? '<div class="info-box" style="background:#fffbeb;border:1px solid #fde68a;color:#92400e;">&#9432; <strong>' + surplusDTs +
+    ? '<div class="info-box" style="background:#3b2e08;border:1px solid #78350f;color:#fbbf24;">&#9432; <strong>' + surplusDTs +
       ' surplus DT(s)</strong> exceed the scaled DT requirement of ' + dtNeeded +
       '. ' + (surplusDTs === 1 ? 'This technician has' : 'These technicians have') +
       ' been reallocated to count toward the 60% ST requirement.</div>'
     : '';
   var mtWaivedBox = mtWaived
-    ? '<div class="info-box" style="background:#eff6ff;border:1px solid #bfdbfe;color:#1e40af;">&#8505;&#65039; <strong>MT requirement waived</strong> — all ' +
+    ? '<div class="info-box" style="background:#0c2d4a;border:1px solid #1e3a5f;color:#60a5fa;">&#8505;&#65039; <strong>MT requirement waived</strong>' — all ' +
       techs.length + ' technician(s) at this site hold ST or DT qualifications. The minimum MT rule does not apply.</div>'
     : '';
   var apprBox = (hideAppr && apprCount > 0)
-    ? '<div class="info-box" style="background:#f0f9ff;border:1px solid #bae6fd;color:#0369a1;">&#9432; <strong>' + apprCount +
+    ? '<div class="info-box" style="background:#0c2d4a;border:1px solid #1e3a5f;color:#60a5fa;">&#9432; <strong>' + apprCount +
       ' Apprentice Technician(s)</strong> excluded from all calculations.</div>'
     : '';
 
@@ -1048,8 +1048,8 @@ function renderSite() {
       '<div class="stat-card ' + sc(pct) + '"><div class="stat-value">' + pct + '%</div><div class="stat-label">Compliance Rate</div></div>' +
       '<div class="stat-card green"><div class="stat-value">' + qualified.length + '</div><div class="stat-label">Qualified</div></div>' +
       '<div class="stat-card red"><div class="stat-value">' + (techs.length - qualified.length) + '</div><div class="stat-label">Not Qualified</div></div>' +
-      '<div class="stat-card"><div class="stat-value" style="color:#7e22ce">' + dtCount + '</div><div class="stat-label">Primary DTs</div></div>' +
-      '<div class="stat-card"><div class="stat-value" style="color:#166534">' + effectiveSTs + '</div>' +
+      '<div class="stat-card"><div class="stat-value" style="color:#c084fc">' + dtCount + '</div><div class="stat-label">Primary DTs</div></div>' +
+      '<div class="stat-card"><div class="stat-value" style="color:#34d399">' + effectiveSTs + '</div>' +
         '<div class="stat-label">Effective STs' + (surplusDTs > 0 ? ' <span title="Incl. ' + surplusDTs + ' surplus DT(s)">&#x2731;</span>' : '') + '</div></div>' +
     '</div>' +
     apprBox + surplusBox + mtWaivedBox +
@@ -1058,7 +1058,7 @@ function renderSite() {
         '<div class="t-line" style="left:80%"><span class="t-label">80% target</span></div>' +
         '<div class="gauge-bar"><div class="gauge-fill" style="width:' + Math.min(pct, 100) + '%;background:' + gc(pct) + '">' + pct + '%</div></div>' +
       '</div>' +
-      '<div class="gauge-legend"><span style="color:#16a34a">&#9679; &ge;80% Compliant</span> <span style="color:#d97706">&#9679; 60-79% Amber</span> <span style="color:#dc2626">&#9679; &lt;60% At Risk</span></div>' +
+      '<div class="gauge-legend"><span style="color:#34d399">&#9679; &ge;80% Compliant</span> <span style="color:#fbbf24">&#9679; 60-79% Amber</span> <span style="color:#f87171">&#9679; &lt;60% At Risk</span></div>' +
     '</div>' +
     '<div class="req-card"><h2>&#128203; Dealer Standards Requirements Check</h2>' + reqs.join('') + '</div>' +
     '<div class="brands-grid">' + brandCard('PC','Passenger Car','badge-pc','PC') + brandCard('Van','Van','badge-van','V') + '</div>' +
@@ -1085,7 +1085,7 @@ function buildTable(techs, filter) {
   var rows = filter === 'pass' ? techs.filter(function(t) { return t.quals.length > 0; })
            : filter === 'fail' ? techs.filter(function(t) { return t.quals.length === 0; })
            : techs;
-  if (!rows.length) return '<p style="padding:16px;color:#888;font-style:italic">No technicians match this filter.</p>';
+  if (!rows.length) return '<p style="padding:16px;color:#4a5070;font-style:italic">No technicians match this filter.</p>';
   var ROLE_MAP = { DT: ['role-dt','DT'], ST: ['role-st','ST'], MT: ['role-mt','MT'], none: ['role-none','&mdash;'] };
   return '<table><thead><tr><th>Name</th><th>Job Role</th><th>Status</th><th>Counted As</th><th>Held Highest Qual For</th><th>Qualifications Held</th></tr></thead><tbody>' +
     rows.slice().sort(function(a, b) { return a.name.localeCompare(b.name); }).map(function(t) {
