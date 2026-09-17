@@ -1,0 +1,2927 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MB Technician Compliance Tool v11</title>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<style>
+/* ═══ Design tokens ═══════════════════════════════════════════════════════
+   One vocabulary for the whole tool. Light is the default because the output
+   of this thing ends up in slides, emails and print — same as the PDFs it
+   exports. [data-theme="dark"] swaps the ramp and nothing else.            */
+:root {
+  --surface:        #f6f7f9;   /* page */
+  --surface-1:      #ffffff;   /* cards */
+  --surface-2:      #f0f2f5;   /* table heads, inset areas */
+  --surface-3:      #e6e9ef;   /* hover */
+  --border:         #dfe3ea;
+  --border-strong:  #c6ccd8;
+  --text:           #1a1d24;
+  --text-2:         #4a5160;   /* secondary */
+  --text-3:         #7b8496;   /* muted / labels */
+  --accent:         #2d5bd7;
+  --accent-soft:    #e8eefc;
+  --accent-text:    #ffffff;
+  --pass:           #15803d;
+  --pass-soft:      #e3f5e9;
+  --warn:           #b45309;
+  --warn-soft:      #fdf0dc;
+  --fail:           #c62828;
+  --fail-soft:      #fdeaea;
+  --info:           #1565c0;
+  --info-soft:      #e4eefb;
+  --purple:         #6b3fa0;
+  --purple-soft:    #f0e9f8;
+  --shadow:         0 1px 2px rgba(16,24,40,.06), 0 1px 3px rgba(16,24,40,.04);
+  --shadow-pop:     0 8px 28px rgba(16,24,40,.14);
+  --radius:         10px;
+  --radius-sm:      7px;
+}
+[data-theme="dark"] {
+  --surface:        #0d0f17;
+  --surface-1:      #161926;
+  --surface-2:      #1a1d2e;
+  --surface-3:      #252a40;
+  --border:         #252a40;
+  --border-strong:  #333a55;
+  --text:           #dde1f0;
+  --text-2:         #9ba3c4;
+  --text-3:         #6b7499;
+  --accent:         #4f6ef7;
+  --accent-soft:    #1c2547;
+  --accent-text:    #ffffff;
+  --pass:           #34d399;
+  --pass-soft:      #10321f;
+  --warn:           #fbbf24;
+  --warn-soft:      #3b2e08;
+  --fail:           #f87171;
+  --fail-soft:      #3b1219;
+  --info:           #60a5fa;
+  --info-soft:      #0c2d4a;
+  --purple:         #c084fc;
+  --purple-soft:    #2a2140;
+  --shadow:         0 1px 2px rgba(0,0,0,.4);
+  --shadow-pop:     0 10px 34px rgba(0,0,0,.55);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+  background: var(--surface); color: var(--text);
+  -webkit-font-smoothing: antialiased;
+}
+/* Numbers line up in columns — every reporting suite does this, v8 did not. */
+.ov-table, .pipe-table, .pop-dealer-table, .ov-hero-num, .ov-val, .ps-val,
+.plc-val, .hs-val, .demand-big, .stat-value, .dn { font-variant-numeric: tabular-nums; }
+
+/* ═══ App bar ═════════════════════════════════════════════════════════════ */
+.appbar {
+  position: sticky; top: 0; z-index: 60;
+  display: flex; align-items: center; gap: 14px;
+  padding: 0 24px; height: 52px;
+  background: var(--surface-1); border-bottom: 1px solid var(--border);
+}
+.appbar .brand { display: flex; align-items: center; gap: 11px; min-width: 0; }
+.appbar .brand h1 { font-size: 0.95rem; font-weight: 650; letter-spacing: -0.01em; white-space: nowrap; }
+.appbar .brand svg { flex: none; }
+.appbar-right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+.data-chip {
+  display: none; align-items: center; gap: 8px;
+  background: var(--surface-2); border: 1px solid var(--border);
+  border-radius: 20px; padding: 5px 13px; font-size: 0.78rem; color: var(--text-2);
+  cursor: pointer; max-width: 340px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  font-family: inherit;
+}
+.data-chip:hover { background: var(--surface-3); border-color: var(--border-strong); color: var(--text); }
+.data-chip.visible { display: flex; }
+.data-chip .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--pass); flex: none; }
+.icon-btn {
+  width: 32px; height: 32px; border-radius: var(--radius-sm);
+  background: transparent; border: 1px solid transparent; color: var(--text-3);
+  cursor: pointer; font-size: 0.95rem; line-height: 1; font-family: inherit;
+  display: flex; align-items: center; justify-content: center;
+}
+.icon-btn:hover { background: var(--surface-2); border-color: var(--border); color: var(--text); }
+
+/* ═══ Help popover ════════════════════════════════════════════════════════ */
+.pop-backdrop { display: none; position: fixed; inset: 0; z-index: 70; background: rgba(10,14,22,.35); }
+.pop-backdrop.open { display: block; }
+.popover {
+  position: fixed; top: 60px; right: 20px; z-index: 71; width: min(440px, calc(100vw - 40px));
+  max-height: calc(100vh - 80px); overflow-y: auto;
+  background: var(--surface-1); border: 1px solid var(--border);
+  border-radius: var(--radius); box-shadow: var(--shadow-pop);
+  padding: 20px 22px; display: none;
+}
+.popover.open { display: block; }
+.popover h3 { font-size: 0.95rem; font-weight: 650; margin-bottom: 4px; }
+.popover h4 {
+  font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
+  color: var(--text-3); margin: 18px 0 7px;
+}
+.popover p, .popover li { font-size: 0.83rem; color: var(--text-2); line-height: 1.5; }
+.popover ul { margin: 0 0 0 16px; }
+.popover li { margin-bottom: 4px; }
+.popover .close { position: absolute; top: 14px; right: 16px; }
+.qcode-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px 14px; }
+.qcode-grid span { font-size: 0.79rem; color: var(--text-2); display: flex; align-items: center; gap: 7px; }
+
+/* ═══ Filter bar ══════════════════════════════════════════════════════════ */
+.filterbar {
+  position: sticky; top: 52px; z-index: 50; display: none;
+  align-items: center; gap: 18px; flex-wrap: wrap;
+  padding: 10px 24px; background: var(--surface-1);
+  border-bottom: 1px solid var(--border);
+}
+.filterbar.visible { display: flex; }
+.fgroup { display: flex; align-items: center; gap: 8px; }
+.fgroup > label {
+  font-size: 0.7rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.05em; color: var(--text-3);
+}
+.segmented { display: inline-flex; background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 2px; }
+.segmented button {
+  border: none; background: transparent; color: var(--text-2);
+  font-family: inherit; font-size: 0.8rem; font-weight: 550;
+  padding: 5px 12px; border-radius: 5px; cursor: pointer; white-space: nowrap;
+}
+.segmented button:hover { color: var(--text); }
+.segmented button.active { background: var(--accent); color: var(--accent-text); font-weight: 650; box-shadow: none; }
+.filterbar .spacer { margin-left: auto; }
+.chip-note { font-size: 0.76rem; color: var(--text-3); }
+.reset-link {
+  background: none; border: none; font-family: inherit; font-size: 0.78rem;
+  color: var(--accent); cursor: pointer; padding: 4px 6px; border-radius: 5px;
+}
+.reset-link:hover { background: var(--accent-soft); }
+
+/* ═══ Inline info disclosure ══════════════════════════════════════════════ */
+.info-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 18px; height: 18px; border-radius: 50%; margin-left: 8px;
+  background: var(--surface-2); border: 1px solid var(--border);
+  color: var(--text-3); font-size: 0.68rem; font-weight: 700;
+  cursor: pointer; font-family: inherit; vertical-align: middle;
+}
+.info-btn:hover { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+.info-panel {
+  display: none; background: var(--surface-2); border: 1px solid var(--border);
+  border-left: 3px solid var(--accent); border-radius: var(--radius-sm);
+  padding: 13px 16px; margin-bottom: 14px; font-size: 0.82rem;
+  color: var(--text-2); line-height: 1.55;
+}
+.info-panel.open { display: block; }
+.info-panel strong { color: var(--text); }
+
+/* ═══ Inherited component styles (tokenised) ═══ */
+.header { background: var(--surface-1); color: var(--accent-text); padding: 18px 32px; display: flex; align-items: center; gap: 18px; border-bottom: 1px solid var(--border); }
+.header h1 { font-size: 1.35rem; font-weight: 600; }
+.header p { font-size: 0.8rem; color: var(--text-3); margin-top: 2px; }
+.container { max-width: 1200px; margin: 28px auto; padding: 0 20px; }
+.qual-key { background: var(--surface-1); border-radius: 10px; padding: 14px 22px; border: 1px solid var(--border); margin-bottom: 20px; display: flex; flex-wrap: wrap; gap: 8px 24px; align-items: center; font-size: 0.82rem; }
+.qual-key b { color: var(--text-3); font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.04em; margin-right: 4px; }
+.selector-card { background: var(--surface-1); border-radius: 10px; padding: 20px 28px; border: 1px solid var(--border); margin-bottom: 24px; display: none; align-items: center; gap: 16px; flex-wrap: wrap; }
+.selector-card > label:first-child { font-weight: 600; font-size: 0.95rem; white-space: nowrap; }
+.selector-card select { flex: 1; min-width: 280px; padding: 10px 14px; border: 1px solid var(--border); border-radius: 7px; font-size: 0.95rem; background: var(--surface-2); color: var(--text); cursor: pointer; }
+.selector-card select option { background: var(--surface-2); }
+.empty-state { text-align: center; padding: 60px 20px; color: var(--text-3); font-size: 1.05rem; }
+.summary-bar { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 16px; margin-bottom: 24px; }
+.stat-card { background: var(--surface-1); border-radius: 10px; padding: 18px 22px; border: 1px solid var(--border); text-align: center; }
+.stat-card .stat-value { font-size: 2.2rem; font-weight: 700; line-height: 1; margin-bottom: 4px; }
+.stat-card .stat-label { font-size: 0.78rem; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.04em; }
+.stat-card.dark { background: var(--surface-2); color: var(--accent-text); border-color: var(--border); }
+.stat-card.dark .stat-label { color: var(--text-3); }
+.green .stat-value { color: var(--pass); }
+.amber .stat-value { color: var(--warn); }
+.red .stat-value { color: var(--fail); }
+.gauge-wrap { background: var(--surface-1); border-radius: 10px; padding: 22px 28px; border: 1px solid var(--border); margin-bottom: 24px; }
+.gauge-wrap h2 { font-size: 1rem; font-weight: 600; margin-bottom: 18px; }
+.gauge-outer { position: relative; padding-top: 24px; }
+.gauge-bar { height: 28px; background: var(--surface-2); border-radius: 14px; overflow: hidden; position: relative; }
+.gauge-fill { height: 100%; border-radius: 14px; display: flex; align-items: center; justify-content: flex-end; padding-right: 12px; font-size: 0.85rem; font-weight: 700; color: var(--accent-text); min-width: 50px; transition: width 0.5s; }
+.t-line { position: absolute; top: 0; bottom: 0; width: 2px; background: rgba(255,255,255,0.25); }
+.t-label { position: absolute; top: -20px; transform: translateX(-50%); font-size: 0.72rem; color: var(--text-3); white-space: nowrap; }
+.gauge-legend { display: flex; gap: 20px; margin-top: 10px; font-size: 0.8rem; color: var(--text-3); }
+.brands-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; margin-bottom: 24px; }
+.brand-card { background: var(--surface-1); border-radius: 10px; padding: 20px 22px; border: 1px solid var(--border); }
+.brand-card h3 { font-size: 0.95rem; font-weight: 700; margin-bottom: 14px; padding-bottom: 10px; border-bottom: 2px solid var(--border); }
+.brand-badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 0.78rem; font-weight: 700; }
+.badge-pc { background: var(--info-soft); color: var(--info); }
+.badge-van { background: var(--pass-soft); color: var(--pass); }
+.qual-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 0.88rem; }
+.qual-row:last-child { border-bottom: none; }
+.qual-count-zero { color: var(--text-3); }
+.req-card { background: var(--surface-1); border-radius: 10px; padding: 22px 28px; border: 1px solid var(--border); margin-bottom: 24px; }
+.req-card h2 { font-size: 1rem; font-weight: 600; margin-bottom: 14px; }
+.req-item { display: flex; align-items: flex-start; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 0.88rem; }
+.req-item:last-child { border-bottom: none; }
+.req-icon { font-size: 1.1rem; flex-shrink: 0; }
+.req-text strong { display: block; margin-bottom: 2px; }
+.pass { color: var(--pass); } .fail { color: var(--fail); } .warn { color: var(--warn); }
+.table-card { background: var(--surface-1); border-radius: 10px; padding: 22px 28px; border: 1px solid var(--border); margin-bottom: 24px; }
+.table-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 10px; }
+.table-card-header h2 { font-size: 1rem; font-weight: 600; }
+.filter-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.fb { padding: 5px 13px; border: 1px solid var(--border); border-radius: 20px; background: var(--surface-2); color: var(--text-2); font-size: 0.8rem; cursor: pointer; }
+.fb.active, .fb:hover { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+thead tr { background: var(--surface-2); }
+th { text-align: left; padding: 10px 12px; font-weight: 600; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-3); border-bottom: 2px solid var(--border); }
+td { padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: var(--surface-2); }
+.pill { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 20px; font-size: 0.78rem; font-weight: 600; }
+.pill-pass { background: var(--pass-soft); color: var(--pass); }
+.pill-fail { background: var(--fail-soft); color: var(--fail); }
+.qtag { display: inline-block; padding: 2px 7px; border-radius: 4px; font-size: 0.72rem; font-weight: 600; margin: 2px; cursor: default; }
+.tag-mt { background: var(--info-soft); color: var(--info); }
+.tag-st { background: var(--pass-soft); color: var(--pass); }
+.tag-dt { background: var(--purple-soft); color: var(--purple); }
+.no-q { color: var(--text-3); font-style: italic; font-size: 0.8rem; }
+.footer { text-align: center; padding: 24px; font-size: 0.78rem; color: var(--text-3); }
+.info-box { border-radius: 8px; padding: 10px 16px; margin-bottom: 16px; font-size: 0.83rem; }
+.role-badge { display: inline-block; padding: 2px 9px; border-radius: 4px; font-size: 0.75rem; font-weight: 700; }
+.role-dt  { background: var(--purple-soft); color: var(--purple); }
+.role-st  { background: var(--pass-soft); color: var(--pass); }
+.role-mt  { background: var(--info-soft); color: var(--info); }
+.role-none { background: var(--surface-2); color: var(--text-3); }
+.tab-bar { display: none; border-bottom: 2px solid var(--border); margin-bottom: 24px; gap: 0; }
+.tab-bar.visible { display: flex; }
+.tab-btn { padding: 12px 24px; background: none; border: none; border-bottom: 3px solid transparent; margin-bottom: -2px; font-size: 0.92rem; font-weight: 600; color: var(--text-3); cursor: pointer; display: flex; align-items: center; gap: 7px; transition: color 0.15s; }
+.tab-btn:hover { color: var(--text-2); }
+.tab-btn.active { color: var(--text); border-bottom-color: var(--accent); }
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+.ov-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 12px; margin-bottom: 24px; }
+.ov-stat { border-radius: 10px; padding: 14px 16px; text-align: center; border: 1px solid var(--border); cursor: pointer; user-select: none; transition: transform 0.12s, box-shadow 0.12s; }
+.ov-stat:hover { transform: translateY(-3px); box-shadow: 0 6px 22px rgba(0,0,0,0.5); }
+.ov-stat .ov-val { font-size: 1.9rem; font-weight: 700; line-height: 1; margin-bottom: 4px; }
+.ov-stat .ov-lbl { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; opacity: 0.7; }
+.ov-section { background: var(--surface-1); border-radius: 10px; padding: 22px 28px; border: 1px solid var(--border); margin-bottom: 24px; }
+.ov-section h2 { font-size: 1rem; font-weight: 600; margin-bottom: 16px; }
+.req-bar-row { display: flex; align-items: center; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--border); font-size: 0.88rem; }
+.req-bar-row:last-child { border-bottom: none; }
+.req-bar-label { flex: 0 0 280px; color: var(--text-2); }
+.req-bar-track { flex: 1; height: 14px; background: var(--surface-2); border-radius: 7px; overflow: hidden; min-width: 80px; }
+.req-bar-fill { height: 100%; border-radius: 7px; }
+.req-bar-num { flex: 0 0 60px; text-align: right; font-weight: 700; font-size: 0.88rem; }
+.ov-filter-row { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+.ov-type-toggle { display: flex; gap: 6px; margin-bottom: 20px; background: var(--surface-2); padding: 5px; border-radius: 10px; width: fit-content; border: 1px solid var(--border); }
+.ov-type-btn { padding: 7px 18px; border: none; border-radius: 7px; background: transparent; font-size: 0.85rem; font-weight: 600; color: var(--text-3); cursor: pointer; transition: all 0.15s; white-space: nowrap; }
+.ov-type-btn:hover { background: var(--surface-3); color: var(--text); }
+.ov-type-btn.active { background: var(--accent); color: var(--accent-text); }
+.ov-table-wrap { overflow-x: auto; max-height: 520px; overflow-y: auto; border-radius: 8px; border: 1px solid var(--border); }
+.ov-sticky-head tr { position: sticky; top: 0; z-index: 2; }
+.ov-sticky-head th { background: var(--surface-2); border-bottom: 2px solid var(--border); }
+.active-filter-chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; background: var(--accent); color: var(--accent-text); border-radius: 20px; font-size: 0.82rem; font-weight: 600; }
+.ov-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+.ov-table thead tr { background: var(--surface-2); }
+.ov-table th { text-align: left; padding: 9px 12px; font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-3); border-bottom: 2px solid var(--border); white-space: nowrap; }
+.ov-table td { padding: 9px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+.ov-table tr:last-child td { border-bottom: none; }
+.ov-table tr:hover td { background: var(--surface-2); }
+.ov-table .site-link { color: var(--info); cursor: pointer; font-weight: 500; text-decoration: underline; text-underline-offset: 2px; }
+.sort-th { cursor: pointer; user-select: none; white-space: nowrap; }
+.sort-th:hover { background: var(--surface-3) !important; color: var(--text); }
+.sort-arrow { display: inline-block; margin-left: 4px; font-size: 0.7rem; opacity: 0.25; vertical-align: middle; }
+.sort-arrow.active { opacity: 1; color: var(--accent); }
+.chk { font-size: 1rem; }
+.chk-pass { color: var(--pass); }
+.chk-fail { color: var(--fail); }
+.pct-cell { font-weight: 700; }
+.issues-pill { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 0.75rem; font-weight: 700; }
+.issues-0 { background: var(--pass-soft); color: var(--pass); }
+.issues-1 { background: var(--warn-soft); color: var(--warn); }
+.issues-2, .issues-3, .issues-4, .issues-5 { background: var(--fail-soft); color: var(--fail); }
+.pipe-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 24px; }
+.pipe-stat { border-radius: 10px; padding: 16px 18px; text-align: center; border: 1px solid var(--border); cursor: pointer; user-select: none; transition: transform 0.12s, box-shadow 0.12s; }
+.pipe-stat:hover { transform: translateY(-3px); box-shadow: 0 6px 22px rgba(0,0,0,0.5); }
+.pipe-stat .ps-val { font-size: 2rem; font-weight: 700; line-height: 1; margin-bottom: 4px; }
+.pipe-stat .ps-lbl { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; opacity: 0.75; }
+.pipe-filter-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; align-items: center; }
+.pipe-table-wrap { overflow-x: auto; max-height: 560px; overflow-y: auto; border-radius: 8px; border: 1px solid var(--border); }
+.pipe-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+.pipe-table thead tr { position: sticky; top: 0; z-index: 2; }
+.pipe-table th { background: var(--surface-2); text-align: left; padding: 9px 12px; font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-3); border-bottom: 2px solid var(--border); white-space: nowrap; }
+.pipe-table td { padding: 9px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+.pipe-table tr:last-child td { border-bottom: none; }
+.pipe-table tr:hover td { background: var(--surface-2); }
+.mod-dot { display: inline-block; width: 22px; height: 22px; border-radius: 50%; font-size: 0.72rem; font-weight: 700; text-align: center; line-height: 22px; margin: 1px; }
+.mod-done  { background: var(--pass-soft); color: var(--pass); }
+.mod-enrol { background: var(--warn-soft); color: var(--warn); }
+.mod-miss  { background: var(--surface-2); color: var(--text-3); }
+.prog-2 { background: var(--warn-soft); color: var(--warn); }
+.prog-1 { background: var(--fail-soft); color: var(--fail); }
+/* ── Network Population tab ── */
+.pop-level-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 14px; margin-bottom: 24px; }
+.pop-level-card { border-radius: 10px; padding: 20px 22px; border: 1px solid var(--border); text-align: center; }
+.pop-level-card .plc-val { font-size: 2.4rem; font-weight: 700; line-height: 1; margin-bottom: 4px; }
+.pop-level-card .plc-pct { font-size: 1rem; font-weight: 600; opacity: 0.75; margin-bottom: 6px; }
+.pop-level-card .plc-lbl { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; opacity: 0.6; }
+.pop-stream-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+@media(max-width:640px){ .pop-stream-grid { grid-template-columns: 1fr; } }
+.pop-stream-card { background: var(--surface-1); border-radius: 10px; padding: 20px 24px; border: 1px solid var(--border); }
+.pop-stream-card h3 { font-size: 0.95rem; font-weight: 700; margin-bottom: 16px; padding-bottom: 10px; border-bottom: 2px solid var(--border); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.pop-bar-row { display: flex; align-items: center; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--border); font-size: 0.88rem; }
+.pop-bar-row:last-child { border-bottom: none; }
+.pop-bar-label { flex: 0 0 120px; color: var(--text-2); display: flex; align-items: center; gap: 6px; }
+.pop-bar-track { flex: 1; height: 12px; background: var(--surface-2); border-radius: 6px; overflow: hidden; min-width: 60px; }
+.pop-bar-fill { height: 100%; border-radius: 6px; transition: width 0.4s; }
+.pop-bar-num { flex: 0 0 90px; text-align: right; font-weight: 700; font-size: 0.85rem; color: var(--text-2); }
+.pop-dealer-wrap { overflow-x: auto; max-height: 560px; overflow-y: auto; border-radius: 8px; border: 1px solid var(--border); }
+.pop-dealer-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+.pop-dealer-table thead tr { position: sticky; top: 0; z-index: 2; }
+.pop-dealer-table th { background: var(--surface-2); text-align: left; padding: 9px 12px; font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-3); border-bottom: 2px solid var(--border); white-space: nowrap; cursor: pointer; user-select: none; }
+.pop-dealer-table th:hover { background: var(--surface-3); color: var(--text); }
+.pop-dealer-table td { padding: 9px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+.pop-dealer-table tr:last-child td { border-bottom: none; }
+.pop-dealer-table tr:hover td { background: var(--surface-2); }
+.load-card { background: var(--surface-1); border-radius: 10px; padding: 18px 24px; border: 2px solid var(--accent); margin-bottom: 20px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.load-title { font-size: 0.78rem; font-weight: 700; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.06em; white-space: nowrap; }
+.drop-zone { flex: 1; min-width: 240px; border: 2px dashed var(--border); border-radius: 8px; padding: 16px 20px; text-align: center; cursor: pointer; transition: all 0.2s; font-size: 0.85rem; color: var(--text-3); }
+.drop-zone:hover, .drop-zone.drag-over { border-color: var(--accent); background: var(--surface-2); color: var(--text); }
+.load-status { font-size: 0.82rem; color: var(--text-3); white-space: nowrap; }
+.ls-loaded { color: var(--pass); font-weight: 600; }
+/* ── v8: non-compliance hero, donut charts, pathway states, course demand ── */
+.ov-hero { background: var(--fail-soft); border: 1px solid var(--fail); border-radius: 12px; padding: 22px 28px; margin-bottom: 20px; display: flex; align-items: center; gap: 26px; flex-wrap: wrap; }
+.ov-hero.clear { background: var(--pass-soft); border-color: var(--pass); }
+.ov-hero-num { font-size: 3.4rem; font-weight: 800; line-height: 1; color: var(--fail); }
+.ov-hero.clear .ov-hero-num { color: var(--pass); }
+.ov-hero-txt h2 { font-size: 1.15rem; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+.ov-hero-txt p { font-size: 0.85rem; color: var(--text-2); }
+.ov-hero-side { margin-left: auto; display: flex; gap: 22px; flex-wrap: wrap; }
+.ov-hero-side div { text-align: center; }
+.ov-hero-side .hs-val { font-size: 1.6rem; font-weight: 700; color: var(--text); line-height: 1; }
+.ov-hero-side .hs-lbl { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-3); margin-top: 4px; }
+.donut-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; margin-bottom: 24px; }
+.donut-card { background: var(--surface-1); border-radius: 10px; padding: 18px 16px 14px; border: 1px solid var(--border); text-align: center; }
+.donut-card h3 { font-size: 0.82rem; font-weight: 700; color: var(--text); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 2px; }
+.donut-card .dc-sub { font-size: 0.72rem; color: var(--text-3); margin-bottom: 8px; }
+.donut-seg { cursor: pointer; transition: opacity 0.15s, stroke-width 0.15s; }
+.donut-seg:hover { opacity: 0.8; stroke-width: 22; }
+.donut-seg.dim { opacity: 0.28; }
+.donut-legend { display: flex; justify-content: center; gap: 14px; margin-top: 8px; flex-wrap: wrap; }
+.dl-item { display: flex; align-items: center; gap: 6px; font-size: 0.76rem; color: var(--text-2); cursor: pointer; padding: 3px 7px; border-radius: 5px; }
+.dl-item:hover { background: var(--surface-2); color: var(--text); }
+.dl-item.active { background: var(--surface-2); color: var(--accent-text); font-weight: 700; }
+.dl-sw { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+/* pathway state dots */
+.pw { display: inline-block; width: 24px; height: 24px; border-radius: 50%; font-size: 0.8rem; font-weight: 700; text-align: center; line-height: 24px; }
+.pw-pass   { background: var(--pass-soft); color: var(--pass); }
+.pw-booked { background: var(--info-soft); color: var(--info); }
+.pw-await  { background: var(--warn-soft); color: var(--warn); }
+.pw-enrol  { background: var(--purple-soft); color: var(--purple); }
+.pw-none   { background: var(--surface-2); color: var(--text-3); }
+.pw-key { display: flex; gap: 16px; flex-wrap: wrap; align-items: center; font-size: 0.78rem; color: var(--text-2); margin-bottom: 14px; }
+.pw-key span.k { display: flex; align-items: center; gap: 6px; }
+.pathway-toggle { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+.pathway-btn { background: var(--surface-1); border: 1px solid var(--border); color: var(--text-2); padding: 8px 16px; border-radius: 7px; font-size: 0.85rem; font-weight: 600; cursor: pointer; font-family: inherit; }
+.pathway-btn:hover { background: var(--surface-2); color: var(--text); }
+.pathway-btn.active { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+.demand-note { background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px; padding: 14px 20px; margin-bottom: 18px; font-size: 0.83rem; color: var(--text-2); display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.demand-note input { width: 70px; padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface-2); color: var(--text); font-size: 0.9rem; font-family: inherit; font-weight: 700; }
+.demand-big { font-size: 1.05rem; font-weight: 700; color: var(--warn); }
+.passive-note { font-size: 0.78rem; color: var(--text-3); margin-left: 12px; }
+/* ── v8: Course Demand drill-down ── */
+.demand-clickable { cursor: pointer; }
+.demand-clickable:hover { background: var(--surface-2); }
+.demand-cell-active { background: var(--surface-2); box-shadow: inset 0 0 0 2px var(--accent); }
+.drill-row > td { background: var(--surface-2); padding: 0 !important; }
+.drill-wrap { padding: 16px 20px; border-left: 3px solid var(--accent); }
+.drill-head { font-size: 0.85rem; font-weight: 700; color: var(--text); margin-bottom: 4px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.drill-sub { font-size: 0.78rem; color: var(--text-3); margin-bottom: 12px; }
+.drill-pdf { margin-left: auto; background: var(--surface-2); border: 1px solid var(--border); color: var(--text); font-family: inherit; font-size: 0.78rem; font-weight: 600; padding: 5px 12px; border-radius: 6px; cursor: pointer; }
+.drill-pdf:hover { background: var(--border-strong); border-color: var(--accent); }
+.drill-status { font-size: 0.76rem; color: var(--text-3); }
+.drill-close { cursor: pointer; color: var(--text-3); font-weight: 700; padding: 2px 8px; border-radius: 5px; }
+.drill-close:hover { background: var(--surface-2); color: var(--text); }
+.drill-site { margin-bottom: 12px; }
+.drill-site h4 { font-size: 0.8rem; font-weight: 700; color: var(--info); margin-bottom: 5px; cursor: pointer; display: inline-block; }
+.drill-site h4:hover { text-decoration: underline; }
+.drill-site h4 span.dn { color: var(--text-3); font-weight: 600; }
+.drill-people { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 6px 22px; }
+.drill-person { font-size: 0.8rem; color: var(--text-2); display: flex; align-items: center; gap: 8px; padding: 3px 0; flex-wrap: wrap; }
+.drill-person .dp-name { color: var(--text); font-weight: 600; white-space: nowrap; }
+.drill-person .dp-job { font-size: 0.74rem; color: var(--text-3); white-space: nowrap; }
+/* the course date goes on its own line so long facility names never collide
+   with the next delegate in the grid */
+.drill-person .dp-when { font-size: 0.74rem; color: var(--info); flex-basis: 100%; margin-left: 32px; }
+.drill-empty { color: var(--text-3); font-style: italic; font-size: 0.83rem; }
+/* ═══ v10 overrides — these win over the inherited v8 rules above ══════════ */
+
+/* Empty state: one thing on the page, nothing else competing for attention */
+.empty-shell { display: flex; align-items: center; justify-content: center; min-height: calc(100vh - 52px); padding: 40px 20px; }
+.empty-card { width: min(560px, 100%); text-align: center; }
+.empty-card h2 { font-size: 1.35rem; font-weight: 650; letter-spacing: -0.02em; margin-bottom: 8px; }
+.empty-card > p { font-size: 0.9rem; color: var(--text-2); margin-bottom: 26px; line-height: 1.55; }
+.drop-zone {
+  border: 1.5px dashed var(--border-strong); border-radius: 14px;
+  padding: 44px 28px; text-align: center; cursor: pointer;
+  background: var(--surface-1); color: var(--text-2);
+  transition: border-color .15s, background .15s; font-size: 0.88rem;
+}
+.drop-zone:hover, .drop-zone.drag-over { border-color: var(--accent); background: var(--accent-soft); color: var(--text); }
+.drop-zone .dz-icon { font-size: 1.9rem; display: block; margin-bottom: 12px; opacity: .75; }
+.drop-zone strong { color: var(--accent); }
+.empty-note { margin-top: 18px; font-size: 0.78rem; color: var(--text-3); line-height: 1.6; }
+
+/* Page shell */
+.container { max-width: 1280px; margin: 0 auto; padding: 22px 24px 60px; }
+.app-shell { display: none; }
+.app-shell.visible { display: block; }
+
+/* Tabs — plain text, quiet underline, no emoji */
+.tab-bar {
+  display: none; gap: 2px; border-bottom: 1px solid var(--border);
+  background: var(--surface-1); padding: 0 24px; position: sticky; top: 52px; z-index: 40;
+}
+.tab-bar.visible { display: flex; }
+.tab-btn {
+  background: none; border: none; border-bottom: 2px solid transparent;
+  color: var(--text-3); font-family: inherit; font-size: 0.86rem; font-weight: 550;
+  padding: 12px 15px; cursor: pointer; white-space: nowrap; margin-bottom: -1px;
+}
+.tab-btn:hover { color: var(--text); }
+.tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 650; }
+/* filter bar sits under the tabs when both are showing */
+.filterbar { top: 96px; }
+
+/* Cards — hairline and a whisper of elevation instead of a hard border */
+.ov-section, .selector-card, .stat-card, .pop-stream-card, .pop-level-card,
+.donut-card, .demand-note, .brand-card, .req-card, .gauge-card {
+  background: var(--surface-1); border: 1px solid var(--border);
+  border-radius: var(--radius); box-shadow: var(--shadow);
+}
+.ov-section { padding: 20px 22px; margin-bottom: 20px; }
+.ov-section h2 {
+  font-size: 0.95rem; font-weight: 650; letter-spacing: -0.01em;
+  margin-bottom: 14px; display: flex; align-items: center; flex-wrap: wrap;
+}
+.ov-section h2 .sub { font-weight: 400; color: var(--text-3); font-size: 0.82rem; margin-left: 10px; }
+
+/* Hero — the one loud element */
+.ov-hero {
+  background: var(--fail-soft); border: 1px solid var(--fail);
+  border-radius: var(--radius); padding: 20px 24px; margin-bottom: 18px;
+  display: flex; align-items: center; gap: 24px; flex-wrap: wrap; box-shadow: none;
+}
+.ov-hero.clear { background: var(--pass-soft); border-color: var(--pass); }
+.ov-hero-num { font-size: 3rem; font-weight: 700; line-height: 1; color: var(--fail); letter-spacing: -0.03em; }
+.ov-hero.clear .ov-hero-num { color: var(--pass); }
+.ov-hero-txt h2 { font-size: 1.02rem; font-weight: 650; color: var(--text); margin-bottom: 3px; }
+.ov-hero-txt p { font-size: 0.82rem; color: var(--text-2); }
+.ov-hero-side .hs-val { font-size: 1.45rem; font-weight: 700; color: var(--text); }
+.ov-hero-side .hs-lbl { font-size: 0.66rem; color: var(--text-3); }
+
+/* Donuts */
+.donut-grid { gap: 14px; margin-bottom: 20px; }
+.donut-card { padding: 16px 14px 12px; }
+.donut-card h3 { font-size: 0.78rem; font-weight: 650; color: var(--text); letter-spacing: 0.01em; text-transform: none; }
+.donut-card .dc-sub { color: var(--text-3); }
+.dl-item { color: var(--text-2); }
+.dl-item:hover { background: var(--surface-2); color: var(--text); }
+.dl-item.active { background: var(--surface-2); color: var(--text); }
+
+/* Pipeline summary — light cards with coloured figures, not solid blocks */
+.pipe-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 18px; }
+.pipe-stat {
+  background: var(--surface-1); border: 1px solid var(--border); border-radius: var(--radius);
+  box-shadow: var(--shadow); padding: 15px 17px; cursor: pointer; text-align: left;
+  border-left: 3px solid var(--border-strong);
+}
+.pipe-stat:hover { border-color: var(--border-strong); }
+.pipe-stat.sel { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft), var(--shadow); }
+.pipe-stat .ps-val { font-size: 1.75rem; font-weight: 700; line-height: 1; margin-bottom: 5px; color: var(--text); letter-spacing: -0.02em; }
+.pipe-stat .ps-lbl { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-3); opacity: 1; font-weight: 600; }
+.pipe-stat.t-all    { border-left-color: var(--text-3); }
+.pipe-stat.t-warn   { border-left-color: var(--warn); }   .pipe-stat.t-warn   .ps-val { color: var(--warn); }
+.pipe-stat.t-info   { border-left-color: var(--info); }   .pipe-stat.t-info   .ps-val { color: var(--info); }
+.pipe-stat.t-fail   { border-left-color: var(--fail); }   .pipe-stat.t-fail   .ps-val { color: var(--fail); }
+.pipe-stat.t-accent { border-left-color: var(--accent); } .pipe-stat.t-accent .ps-val { color: var(--accent); }
+
+/* Filter pills */
+.fb, .pathway-btn {
+  background: var(--surface-1); border: 1px solid var(--border); color: var(--text-2);
+  font-family: inherit; font-size: 0.8rem; font-weight: 550;
+  padding: 6px 13px; border-radius: 20px; cursor: pointer;
+}
+.fb:hover, .pathway-btn:hover { background: var(--surface-2); color: var(--text); border-color: var(--border-strong); }
+.fb.active, .pathway-btn.active { background: var(--accent); border-color: var(--accent); color: var(--accent-text); font-weight: 650; }
+.pipe-filter-row, .pathway-toggle { gap: 7px; }
+
+/* Tables */
+.ov-table, .pipe-table, .pop-dealer-table { font-size: 0.83rem; }
+.ov-table th, .pipe-table th, .pop-dealer-table th {
+  background: var(--surface-2); color: var(--text-3);
+  font-size: 0.68rem; font-weight: 700; letter-spacing: 0.05em;
+  border-bottom: 1px solid var(--border); padding: 9px 12px;
+}
+.ov-table td, .pipe-table td, .pop-dealer-table td { border-bottom: 1px solid var(--border); padding: 9px 12px; }
+.ov-table tbody tr:hover td, .pipe-table tr:hover td, .pop-dealer-table tr:hover td { background: var(--surface-2); }
+.ov-table-wrap, .pipe-table-wrap, .pop-dealer-wrap { border: 1px solid var(--border); border-radius: var(--radius-sm); }
+.site-link { color: var(--accent); cursor: pointer; }
+.site-link:hover { text-decoration: underline; }
+.sort-th:hover { background: var(--surface-3); color: var(--text); }
+
+/* Drill-down */
+.drill-row > td { background: var(--surface-2); }
+.drill-wrap { border-left: 3px solid var(--accent); }
+.drill-pdf { background: var(--surface-1); border: 1px solid var(--border); color: var(--text); }
+.drill-pdf:hover { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+.drill-site h4 { color: var(--accent); }
+.drill-person .dp-name { color: var(--text); }
+
+/* Chips and pills */
+.active-filter-chip { background: var(--accent-soft); color: var(--accent); border: 1px solid var(--accent); }
+.issues-pill { font-variant-numeric: tabular-nums; }
+
+/* Apprentice toggle, restyled for the filter bar */
+/* the apprentice switch was replaced by a segmented control */
+
+/* Footer removed from the page — its text lives in the help popover now */
+.footer { display: none; }
+.qual-key { display: none; }
+.header { display: none; }
+.load-card { display: none; }
+
+</style>
+</head>
+<body>
+<div class="appbar">
+  <div class="brand">
+    <svg width="26" height="26" viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="19" fill="none" stroke="currentColor" stroke-width="1.6"/><line x1="20" y1="20" x2="20" y2="3" stroke="currentColor" stroke-width="1.9"/><line x1="20" y1="20" x2="4.3" y2="29.5" stroke="currentColor" stroke-width="1.9"/><line x1="20" y1="20" x2="35.7" y2="29.5" stroke="currentColor" stroke-width="1.9"/></svg>
+    <h1>Technician Qualification Compliance</h1>
+  </div>
+  <div class="appbar-right">
+    <button class="data-chip" id="dataChip" onclick="document.getElementById('xlFile').click()" title="Click to load a different PDP export"><span class="dot"></span><span id="dataChipText"></span></button>
+    <button class="icon-btn" id="themeBtn" onclick="toggleTheme()" title="Switch between light and dark">&#9788;</button>
+    <button class="icon-btn" onclick="toggleHelp()" title="Qualification codes and how the figures are worked out">&#8505;</button>
+  </div>
+</div>
+
+<div class="tab-bar" id="tabBar"><button class="tab-btn active" id="tabOverview" onclick="switchTab('overview')">Overview</button><button class="tab-btn" id="tabPipeline" onclick="switchTab('pipeline')">Pipelines</button><button class="tab-btn" id="tabDemand" onclick="switchTab('demand')">Course Demand</button><button class="tab-btn" id="tabBySite" onclick="switchTab('bysite')">By Site</button><button class="tab-btn" id="tabPopulation" onclick="switchTab('population')">Network Population</button></div>
+
+<div class="filterbar" id="filterBar"></div>
+
+<input type="file" id="xlFile" accept=".xlsx,.xls" style="display:none" onchange="fileChosen(this)">
+
+<div class="empty-shell" id="emptyShell">
+  <div class="empty-card">
+    <h2>Load the PDP course data</h2>
+    <p>Drop the Mercedes-Benz PDP Course Data export below to see which sites are below the minimum franchise standard, who still needs training, and how many courses need scheduling.</p>
+    <div class="drop-zone" id="dropZone" onclick="document.getElementById('xlFile').click()" ondragover="dzOver(event)" ondragleave="dzLeave(event)" ondrop="dzDrop(event)">
+      <span class="dz-icon">&#128194;</span>
+      Drop the <strong>.xlsx</strong> here, or click to browse
+    </div>
+    <p class="empty-note">Nothing is uploaded &mdash; the file is read in your browser and discarded when you close the tab.</p>
+  </div>
+</div>
+
+<div class="app-shell" id="appShell">
+  <div class="container">
+    <div class="tab-panel active" id="panelOverview"><div id="overviewContent"></div></div>
+    <div class="tab-panel" id="panelPopulation"><div id="populationContent"></div></div>
+    <div class="tab-panel" id="panelPipeline"><div id="pipelineContent"></div></div>
+    <div class="tab-panel" id="panelDemand"><div id="demandContent"></div></div>
+    <div class="tab-panel" id="panelBySite">
+      <div class="selector-card" id="siteSelectCard"><label for="siteSelect">Site</label><select id="siteSelect" onchange="renderSite()"><option value="">&mdash; Choose a dealership &mdash;</option></select></div>
+      <div id="dashboard"></div>
+    </div>
+  </div>
+</div>
+
+<div class="pop-backdrop" id="helpBackdrop" onclick="toggleHelp()"></div>
+<div class="popover" id="helpPopover">
+  <button class="icon-btn close" onclick="toggleHelp()" title="Close">&times;</button>
+  <h3>How these figures work</h3>
+  <p style="font-size:0.8rem;color:var(--text-3)">Mercedes-Benz Dealer Standards &middot; Passenger Car &amp; Van</p>
+
+  <h4>Official qualification codes</h4>
+  <div class="qcode-grid">
+    <span><span class="qtag tag-mt">PC MT</span> MBPCQMT</span>
+    <span><span class="qtag tag-mt">Van MT</span> MBVQMT</span>
+    <span><span class="qtag tag-st">PC ST</span> MBPCQST</span>
+    <span><span class="qtag tag-st">Van ST</span> MBVQST</span>
+    <span><span class="qtag tag-dt">PC DT</span> MBPCQDT</span>
+    <span><span class="qtag tag-dt">Van DT</span> MBVQDT</span>
+  </div>
+
+  <h4>How technicians are counted</h4>
+  <ul>
+    <li>Qualifications come from the official course codes above, on <strong>Passed</strong> status only.</li>
+    <li>Each technician counts in exactly one role: <strong>DT &gt; ST &gt; MT</strong>.</li>
+    <li>A DT beyond the scaled requirement is reallocated towards the 60% ST threshold.</li>
+    <li>If every technician is ST or DT, the MT requirement is waived.</li>
+    <li>Truck data is excluded.</li>
+  </ul>
+
+  <h4>Enrolled vs booked</h4>
+  <ul>
+    <li><strong>Booked</strong> &mdash; an instructor-led or virtual classroom course with a date.</li>
+    <li><strong>Enrolled</strong> &mdash; on the pathway but with no course date. A delegate can sit here indefinitely, which is why the two are counted separately.</li>
+  </ul>
+
+  <h4>The five requirements</h4>
+  <ul>
+    <li>80% of technicians qualified at MT or above</li>
+    <li>60% counted as Systems Technician</li>
+    <li>At least one MT-only technician (or waived)</li>
+    <li>At least one Diagnostic Technician</li>
+    <li>One DT per 15 technicians, scaled</li>
+  </ul>
+
+  <h4>Data</h4>
+  <p id="helpDataNote">No file loaded yet.</p>
+</div>
+
+<script>
+// ═══ v10 shell: theme, help popover, filter bar, info disclosures ═════════
+
+// ── Theme ────────────────────────────────────────────────────────────────
+// Light is the default. The choice is remembered per browser; wrapped in
+// try/catch because storage can be blocked and the tool must still work.
+function applyTheme(t) {
+  if (t === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+  else document.documentElement.removeAttribute('data-theme');
+  var b = document.getElementById('themeBtn');
+  if (b) { b.innerHTML = t === 'dark' ? '&#9790;' : '&#9788;'; }
+}
+function currentTheme() {
+  return document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+}
+function toggleTheme() {
+  var next = currentTheme() === 'dark' ? 'light' : 'dark';
+  applyTheme(next);
+  try { localStorage.setItem('mbct-theme', next); } catch (e) {}
+}
+(function initTheme() {
+  var saved = null;
+  try { saved = localStorage.getItem('mbct-theme'); } catch (e) {}
+  applyTheme(saved === 'dark' ? 'dark' : 'light');
+})();
+
+// ── Help popover ─────────────────────────────────────────────────────────
+function toggleHelp() {
+  var p = document.getElementById('helpPopover');
+  var b = document.getElementById('helpBackdrop');
+  var open = p.classList.contains('open');
+  p.classList.toggle('open', !open);
+  b.classList.toggle('open', !open);
+}
+document.addEventListener('keydown', function(e) {
+  if (e.key !== 'Escape') return;
+  var p = document.getElementById('helpPopover');
+  if (p && p.classList.contains('open')) toggleHelp();
+});
+
+// ── Inline info disclosures ──────────────────────────────────────────────
+// Every tab's explanatory prose now hides behind an (i) next to the heading,
+// so the figures are the first thing on the page rather than the fourth.
+function infoBtn(id) {
+  return '<button class="info-btn" onclick="toggleInfo(\'' + id + '\')" title="What this shows">i</button>';
+}
+function infoPanel(id, html) {
+  return '<div class="info-panel' + (OPEN_INFO[id] ? ' open' : '') + '" id="' + id + '">' + html + '</div>';
+}
+var OPEN_INFO = {};
+function toggleInfo(id) {
+  OPEN_INFO[id] = !OPEN_INFO[id];
+  var el = document.getElementById(id);
+  if (el) el.classList.toggle('open', OPEN_INFO[id]);
+}
+
+// ── Filter bar ───────────────────────────────────────────────────────────
+// Replaces v8's two rows of buttons inside every tab with one sticky bar.
+// Same globals, same setters — this is presentation only.
+function renderFilterBar() {
+  var bar = document.getElementById('filterBar');
+  if (!bar) return;
+  if (!Object.keys(SITE_DATA).length) { bar.className = 'filterbar'; bar.innerHTML = ''; return; }
+
+  function seg(group, current, setter, opts) {
+    return '<div class="fgroup"><label>' + group + '</label><div class="segmented">' +
+      opts.map(function(o) {
+        return '<button class="' + (current === o[0] ? 'active' : '') + '"' +
+               ' onclick="' + setter + '(\'' + o[0] + '\')">' + o[1] + '</button>';
+      }).join('') + '</div></div>';
+  }
+
+  var isDefault = ovNetworkFilter === 'mb' && ovTypeFilter === 'all' && hideAppr;
+  var passive = PASSIVE_EXCLUDED > 0
+    ? '<span class="chip-note">' + PASSIVE_EXCLUDED + ' passive delegates excluded</span>'
+    : '';
+
+  bar.className = 'filterbar visible';
+  bar.innerHTML =
+    seg('Network', ovNetworkFilter, 'setScopeNetwork', [['all','All'],['mb','MB Retailers'],['partner','Partners']]) +
+    seg('Brand',   ovTypeFilter,    'setScopeType',    [['all','All'],['car','Car'],['van','Van']]) +
+    seg('Apprentices', hideAppr ? 'exclude' : 'include', 'setApprentices',
+        [['exclude','Excluded'],['include','Included']]) +
+    '<span class="spacer"></span>' + passive +
+    (isDefault ? '' : '<button class="reset-link" onclick="resetScope()">Reset filters</button>');
+}
+
+function resetScope() {
+  ovNetworkFilter = 'mb';
+  ovTypeFilter = 'all';
+  hideAppr = true;
+  rerenderAllScoped();
+  renderSite();
+}
+
+const EMBEDDED_DATA = {};
+
+var SITE_DATA = {};
+const sel = document.getElementById('siteSelect');
+
+var currentFilter = 'all';
+var hideAppr = true;
+var currentTechs = [];
+
+// v10: the no-data message is the empty shell in the markup above.
+
+function switchTab(tab) {
+  document.getElementById('panelOverview').className    = 'tab-panel' + (tab === 'overview'    ? ' active' : '');
+  document.getElementById('panelPopulation').className  = 'tab-panel' + (tab === 'population'  ? ' active' : '');
+  document.getElementById('panelBySite').className      = 'tab-panel' + (tab === 'bysite'      ? ' active' : '');
+  document.getElementById('panelPipeline').className    = 'tab-panel' + (tab === 'pipeline'    ? ' active' : '');
+  document.getElementById('panelDemand').className      = 'tab-panel' + (tab === 'demand'      ? ' active' : '');
+  document.getElementById('tabOverview').className      = 'tab-btn'   + (tab === 'overview'    ? ' active' : '');
+  document.getElementById('tabPopulation').className    = 'tab-btn'   + (tab === 'population'  ? ' active' : '');
+  document.getElementById('tabBySite').className        = 'tab-btn'   + (tab === 'bysite'      ? ' active' : '');
+  document.getElementById('tabPipeline').className      = 'tab-btn'   + (tab === 'pipeline'    ? ' active' : '');
+  document.getElementById('tabDemand').className        = 'tab-btn'   + (tab === 'demand'      ? ' active' : '');
+  // By Site shows one dealer, so the scope filters do not apply there
+  var fb = document.getElementById('filterBar');
+  if (fb && Object.keys(SITE_DATA).length) {
+    fb.className = 'filterbar' + (tab === 'bysite' ? '' : ' visible');
+  }
+  if (tab === 'pipeline')   renderPipeline();
+  if (tab === 'demand')     renderDemand();
+  if (tab === 'population') renderPopulation();
+}
+// ─── Network Population ──────────────────────────────────────────────────────
+var popSortCol    = 'name';
+var popSortDir    = 1;
+
+function renderPopulation() {
+  var el = document.getElementById('populationContent');
+  if (!Object.keys(SITE_DATA).length) {
+    el.innerHTML = '<div class="empty-state" style="padding:80px 20px"><p>No data loaded.</p></div>';
+    return;
+  }
+
+  var network = { total:0, DT:0, ST:0, MT:0, none:0 };
+  // car/van always computed from ALL sites (not filtered) so the split section is always meaningful
+  var car     = { total:0, DT:0, ST:0, MT:0, none:0 };
+  var van     = { total:0, DT:0, ST:0, MT:0, none:0 };
+  var dealerRows = [];
+
+  // First pass: car/van split — ignores the Car/Van filter (that is the point of
+  // the split) but honours the network filter so the scope bar means one thing.
+  Object.keys(SITE_DATA).forEach(function(site) {
+    var siteType = getSiteType(site);
+    if (ovNetworkFilter === 'mb'      && !MB_OFFICIAL_SET.has(site)) return;
+    if (ovNetworkFilter === 'partner' && !MB_PARTNER_SET.has(site))  return;
+    var allTechs = SITE_DATA[site].filter(function(p) { return p.is_tech; });
+    var techs = hideAppr ? allTechs.filter(function(t) { return t.job !== 'Apprentice Technician'; }) : allTechs;
+    if (!techs.length) return;
+    var byRole = { DT:[], ST:[], MT:[], none:[] };
+    techs.forEach(function(t) { byRole[getPrimaryRole(t.quals)].push(t); });
+    var isCar  = (siteType === 'car');
+    var isVan  = (siteType === 'van');
+    var isBoth = (siteType === 'both');
+    ['DT','ST','MT','none'].forEach(function(lvl) {
+      var cnt = byRole[lvl].length;
+      if (isCar || isBoth) { car[lvl] += cnt; car.total += cnt; }
+      if (isVan || isBoth) { van[lvl] += cnt; van.total += cnt; }
+    });
+  });
+
+  // Second pass: full scope filter for the summary cards and dealer table
+  Object.keys(SITE_DATA).sort().forEach(function(site) {
+    var siteType = getSiteType(site);
+    if (ovTypeFilter === 'car' && siteType === 'van') return;
+    if (ovTypeFilter === 'van' && siteType === 'car') return;
+    if (ovNetworkFilter === 'mb'      && !MB_OFFICIAL_SET.has(site)) return;
+    if (ovNetworkFilter === 'partner' && !MB_PARTNER_SET.has(site))  return;
+
+    var allTechs = SITE_DATA[site].filter(function(p) { return p.is_tech; });
+    var techs = hideAppr ? allTechs.filter(function(t) { return t.job !== 'Apprentice Technician'; }) : allTechs;
+    if (!techs.length) return;
+
+    var byRole = { DT:[], ST:[], MT:[], none:[] };
+    techs.forEach(function(t) { byRole[getPrimaryRole(t.quals)].push(t); });
+
+    var isVan  = (siteType === 'van');
+    var isCar  = (siteType === 'car');
+    var isBoth = (siteType === 'both');
+
+    ['DT','ST','MT','none'].forEach(function(lvl) {
+      var cnt = byRole[lvl].length;
+      network[lvl]  += cnt;
+      network.total += cnt;
+    });
+
+    dealerRows.push({
+      name: site, siteType: siteType,
+      total: techs.length,
+      DT: byRole.DT.length, ST: byRole.ST.length,
+      MT: byRole.MT.length, none: byRole.none.length,
+      pctQual: techs.length ? Math.round(100 * (techs.length - byRole.none.length) / techs.length) : 0
+    });
+  });
+
+  function pctOf(n, t) { return t > 0 ? Math.round(100 * n / t) : 0; }
+
+  // ── Network-wide level cards ──
+  var LEVELS = [
+    { key:'DT',   label:'Diagnostic Technicians', colour:'var(--purple)', bg:'var(--purple-soft)' },
+    { key:'ST',   label:'Systems Technicians',     colour:'var(--pass)', bg:'var(--pass-soft)' },
+    { key:'MT',   label:'Maintenance Technicians', colour:'var(--info)', bg:'var(--info-soft)' },
+    { key:'none', label:'No Qualification',        colour:'var(--fail)', bg:'var(--fail-soft)' }
+  ];
+  var levelCards = '<div class="pop-level-card" style="background:var(--surface-2)">' +
+    '<div class="plc-val" style="color:var(--text)">' + network.total + '</div>' +
+    '<div class="plc-pct" style="color:var(--text-3)">100%</div>' +
+    '<div class="plc-lbl" style="color:var(--text-3)">Total Technicians</div></div>' +
+    LEVELS.map(function(lvl) {
+      var n = network[lvl.key];
+      var p = pctOf(n, network.total);
+      return '<div class="pop-level-card" style="background:' + lvl.bg + ';border-color:' + lvl.colour + '33">' +
+        '<div class="plc-val" style="color:' + lvl.colour + '">' + n + '</div>' +
+        '<div class="plc-pct" style="color:' + lvl.colour + '">' + p + '%</div>' +
+        '<div class="plc-lbl" style="color:' + lvl.colour + '">' + lvl.label + '</div></div>';
+    }).join('');
+
+  // ── Generic bar builder ──
+  function levelBars(data) {
+    return [
+      { key:'DT',   label:'DT',   colour:'var(--purple)', roleCls:'role-dt'   },
+      { key:'ST',   label:'ST',   colour:'var(--pass)', roleCls:'role-st'   },
+      { key:'MT',   label:'MT',   colour:'var(--info)', roleCls:'role-mt'   },
+      { key:'none', label:'None', colour:'var(--fail)', roleCls:'role-none' }
+    ].map(function(r) {
+      var n = data[r.key], p = pctOf(n, data.total);
+      return '<div class="pop-bar-row">' +
+        '<div class="pop-bar-label"><span class="role-badge ' + r.roleCls + '">' + r.label + '</span></div>' +
+        '<div class="pop-bar-track"><div class="pop-bar-fill" style="width:' + p + '%;background:' + r.colour + '"></div></div>' +
+        '<div class="pop-bar-num" style="color:' + r.colour + '">' + n +
+          ' <span style="font-weight:400;font-size:0.78rem;color:var(--text-3)">(' + p + '%)</span></div>' +
+      '</div>';
+    }).join('');
+  }
+
+  // ── Per-dealer table ──
+  var PSORT = {
+    'name':    function(r) { return r.name.toLowerCase(); },
+    'total':   function(r) { return r.total; },
+    'DT':      function(r) { return r.DT; },
+    'ST':      function(r) { return r.ST; },
+    'MT':      function(r) { return r.MT; },
+    'none':    function(r) { return r.none; },
+    'pctQual': function(r) { return r.pctQual; }
+  };
+  var sfn = PSORT[popSortCol] || PSORT['name'];
+  dealerRows = dealerRows.slice().sort(function(a, b) {
+    var av = sfn(a), bv = sfn(b);
+    if (av < bv) return -1 * popSortDir;
+    if (av > bv) return  1 * popSortDir;
+    return a.name.localeCompare(b.name);
+  });
+
+  function pSortTh(label, key, title) {
+    var isActive = popSortCol === key;
+    var arrow = isActive ? (popSortDir === 1 ? ' &#9650;' : ' &#9660;') : ' &#8693;';
+    var cls = isActive ? 'sort-arrow active' : 'sort-arrow';
+    var t = title ? ' title="' + title + '"' : '';
+    return '<th' + t + ' onclick="setPopSort(\'' + key + '\')">' + label +
+      '<span class="' + cls + '">' + arrow + '</span></th>';
+  }
+
+  var STYPE_ICON = { car:'&#128664;', van:'&#128657;', both:'&#128664;&#128657;' };
+  var tableRows = dealerRows.map(function(r) {
+    var qual = r.total - r.none;
+    var bw = r.total > 0 ? Math.round(100 * qual / r.total) : 0;
+    var bc = bw >= 80 ? 'var(--pass)' : bw >= 60 ? 'var(--warn)' : 'var(--fail)';
+    function lvlCell(n, col) {
+      var p = r.total > 0 ? Math.round(100 * n / r.total) : 0;
+      return '<td style="text-align:center"><strong style="color:' + col + '">' + n + '</strong>' +
+        '<span style="font-size:0.72rem;color:var(--text-3)"> (' + p + '%)</span></td>';
+    }
+    return '<tr>' +
+      '<td><span style="font-size:0.75rem;color:var(--text-3)">' + (STYPE_ICON[r.siteType]||'') + '</span> ' + esc(r.name) + '</td>' +
+      '<td style="text-align:center;font-weight:700">' + r.total + '</td>' +
+      lvlCell(r.DT,   'var(--purple)') +
+      lvlCell(r.ST,   'var(--pass)') +
+      lvlCell(r.MT,   'var(--info)') +
+      lvlCell(r.none, 'var(--fail)') +
+      '<td><div style="display:flex;align-items:center;gap:8px">' +
+        '<div style="flex:1;height:10px;background:var(--surface-2);border-radius:5px;overflow:hidden;min-width:60px">' +
+          '<div style="height:100%;width:' + bw + '%;background:' + bc + ';border-radius:5px"></div></div>' +
+        '<span style="font-weight:700;color:' + bc + ';min-width:38px;text-align:right">' + bw + '%</span>' +
+      '</div></td>' +
+    '</tr>';
+  }).join('');
+
+  el.innerHTML =
+    scopeBar(false) +
+    '<div class="pop-level-grid">' + levelCards + '</div>' +
+    '<div class="ov-section">' +
+      '<h2>Qualification Level Split — Car vs Van Sites</h2>' +
+      '<div class="pop-stream-grid">' +
+        '<div class="pop-stream-card">' +
+          '<h3>Car Sites <span style="font-size:0.8rem;color:var(--text-3);font-weight:400">' + car.total + ' technicians</span></h3>' +
+          levelBars(car) +
+        '</div>' +
+        '<div class="pop-stream-card">' +
+          '<h3>Van Sites <span style="font-size:0.8rem;color:var(--text-3);font-weight:400">' + van.total + ' technicians</span></h3>' +
+          levelBars(van) +
+        '</div>' +
+      '</div>' +
+    '</div>' +
+    '<div class="ov-section">' +
+      '<h2>Qualification Levels by Dealer</h2>' +
+      '<div class="pop-dealer-wrap"><table class="pop-dealer-table">' +
+        '<thead><tr>' +
+          pSortTh('Site',        'name') +
+          pSortTh('Total',       'total') +
+          pSortTh('DT',          'DT',      'Diagnostic Technicians') +
+          pSortTh('ST',          'ST',      'Systems Technicians') +
+          pSortTh('MT',          'MT',      'Maintenance Technicians') +
+          pSortTh('None',        'none',    'No qualification') +
+          pSortTh('% Qualified', 'pctQual') +
+        '</tr></thead>' +
+        '<tbody>' + tableRows + '</tbody>' +
+      '</table></div>' +
+    '</div>';
+}
+
+function setPopSort(col) {
+  if (popSortCol === col) { popSortDir *= -1; }
+  else { popSortCol = col; popSortDir = col === 'name' ? 1 : -1; }
+  renderPopulation();
+}
+
+// ─── Overview ────────────────────────────────────────────────────────────────
+// v8: the dashboard opens on what is NOT compliant. Lee's brief and the meeting
+// both put the failing sites first, so the default filter is non-compliant sites
+// sorted worst-first, not the full network sorted alphabetically.
+var ovTypeFilter = 'all'; // 'all' | 'car' | 'van'
+var ovCardFilter = 'fail'; // see CARD_FILTERS below
+var ovNetworkFilter = 'mb'; // 'all' | 'mb' | 'partner'
+var ovSortCol    = 'issues'; // current sort column key
+var ovSortDir    = -1;       // 1 = ascending, -1 = descending
+
+// Hardcoded list of van network retailer sites (names as they appear in PDP data).
+// These are always classified as 'van' regardless of what qualifications staff hold,
+// preventing PC-qualified staff at van sites from causing misclassification.
+var VAN_NETWORK_SITES = [
+  'Arthur Spriggs & Sons - Tewkesbury',
+  'Bell Truck & Van (Billingham)','Bell Truck & Van (Spennymoor)','Bell Truck and Van - Stockton',
+  'BLS Truck and Van - Aberdeen',
+  'Ciceley Commercials - Blackburn','Ciceley Commercials - Bolton','Ciceley Commercials - Carlisle','Ciceley Commercials - Dumfries',
+  'Ciceley Bolton Mercedes-Benz Authorised Repairer',
+  'Euro Commercials - Avonmouth','Euro Commercials - Cardiff','Euro Commercials - Exeter',
+  'Euro Commercials - Highbridge','Euro Commercials - Newport',
+  'Euro Commercials - Swansea','Euro Commercials - Service Factory Swansea',
+  'eStar Truck and Van - Deeside','eStar Truck and Van - Manchester','eStar Truck and Van - Stoke',
+  'eStar Truck Service (Knowsley)','eStar Van Service - Knowsley',
+  'LSH Birmingham Parts Distribution Centre',
+  'Marshall Truck & Van (Croydon)','Marshall Truck and Van  - Southampton',
+  'Marshall Truck and Van - Andover','Marshall Truck and Van - Fareham','Marshall Van - Croydon',
+  'MBNI Truck and Van - Dungannon','MBNI Truck and Van - Newtownabbey',
+  'MBNI Dungannon Mercedes-Benz Authorised Repairer',
+  'Mercedes-Benz Van Centre - Ipswich','Mercedes-Benz Van Centre - Newcastle','Mercedes-Benz Van Service - Thurrock',
+  'Mercedes-Benz of Exeter - Van Service','Mercedes-Benz of Plymouth - Van Service','Mercedes-Benz of Taunton - Van Service',
+  'Mertrux Truck and Van - Derby','Mertrux Truck and Van - Leicester',
+  'Mertrux Truck and Van - Mansfield','Mertrux Truck and Van - Nottingham',
+  'Mertrux Mercedes-Benz Authorised Repairer',
+  'Midlands Truck and Van - Boston','Midlands Truck and Van - Coventry','Midlands Truck and Van - Dunstable',
+  'Midlands Truck and Van - Milton Keynes','Midlands Truck and Van - Peterborough',
+  'Midlands Truck and Van - Smethwick','Midlands Truck and Van - Wellingborough','Midlands Truck and Van - Wolverhampton',
+  'Northside Truck and Van - Bradford','Northside Truck and Van - Doncaster','Northside Truck and Van - Hull',
+  'Northside Truck and Van - Immingham','Northside Truck and Van - Leeds',
+  'Northside Truck and Van - Sheffield','Northside Truck and Van - York',
+  'Rossetts Commercials - Aldershot','Rossetts Commercials - Crawley','Rossetts Commercials - Eastbourne',
+  'Rossetts Commercials - Non-Retail Parts Hub - Crawley','Rossetts Commercials - Worthing',
+  'Rygor - Chilcompton','Rygor - Gloucester','Rygor - Heathrow','Rygor - Kidderminster',
+  'Rygor - Nuneaton','Rygor - Oxford','Rygor - Reading','Rygor - Swindon','Rygor - Westbury',
+  'Rygor Auto - Non-Retail Parts Hub - Heathrow',
+  'Rygor Heathrow Mercedes-Benz Authorised Repairer','Rygor Mercedes-Benz Authorised Repairer',
+  'SAGA Truck and Van - Ashford','SAGA Truck and Van - Dartford','SAGA Truck and Van - Hatfield',
+  'SAGA Truck and Van - Ipswich','SAGA Truck and Van - Norwich','SAGA Truck and Van - Sittingbourne',
+  'SAGA Truck and Van - Tonbridge','SAGA Truck and Van - Witham',
+  'Sandown Parts Distribution Centre','Sandown Van Centre - Poole',
+  'Sytner Colindale Trade Parts Centre',
+  'Van Mossel Jacksons Guernsey','Van Mossel Jacksons Jersey',
+  'Van Mossel Jacksons Isle of Man','Van Mossel Esplanade Isle of Wight',
+  'Western Commercial - Bellshill','Western Commercial - Dundee',
+  'Western Commercial - Edinburgh','Western Commercial - Glasgow'
+];
+var VAN_NETWORK_SET = new Set(VAN_NETWORK_SITES);
+
+// Classify a site as 'car', 'van', or 'both'.
+// Van network sites are hardcoded to prevent PC-qualified staff causing misclassification.
+// MB dual-franchise sites (car + van) are detected by job role keywords.
+function getSiteType(site) {
+  var inVanNetwork = VAN_NETWORK_SET.has(site);
+  var hasCar = false, hasVan = false;
+  SITE_DATA[site].forEach(function(p) {
+    var j = p.job || '';
+    if (j.indexOf(' Car') >= 0) hasCar = true;
+    if (j.indexOf(' Van') >= 0) hasVan = true;
+  });
+  if (inVanNetwork) {
+    // Always van — never shown in car filter even if staff hold PC qualifications
+    return 'van';
+  }
+  if (hasCar && hasVan) return 'both';
+  if (hasVan) return 'van';
+  return 'car'; // default car if neither keyword found
+}
+
+function siteCompliance(site) {
+  // Returns compliance metrics for one site (respects hideAppr toggle)
+  var allTechs = SITE_DATA[site].filter(function(p) { return p.is_tech; });
+  var techs = hideAppr ? allTechs.filter(function(t) { return t.job !== 'Apprentice Technician'; }) : allTechs;
+  if (!techs.length) return null;
+  var byRole = { DT: [], ST: [], MT: [], none: [] };
+  techs.forEach(function(t) { byRole[getPrimaryRole(t.quals)].push(t); });
+  // Technicians with a live booking on a pathway — a dated instructor-led or
+  // virtual classroom course, not a bare e-Training enrolment. Counted across
+  // every technician at the site whatever role they hold, and once per person
+  // however many courses in that pathway they have booked.
+  var stype = getSiteType(site);
+  function bookedOn(pw) {
+    return techs.filter(function(t) {
+      var v = pwView(t, pw, techBrand(t, stype));
+      return v.c.some(function(st) { return st === 'booked' || st === 'await'; });
+    }).length;
+  }
+  var qualified  = techs.filter(function(t) { return t.quals.length > 0; });
+  var pct        = Math.round(100 * qualified.length / techs.length);
+  var dtNeeded   = 1 + Math.floor((techs.length - 1) / 15);
+  var dtCount    = byRole.DT.length;
+  var surplusDTs = Math.max(0, dtCount - dtNeeded);
+  var effSTs     = byRole.ST.length + surplusDTs;
+  var stPct      = Math.round(effSTs / techs.length * 100);
+  var mtOnly     = byRole.MT.length;
+  var mtWaived   = mtOnly === 0 && byRole.none.length === 0 && (byRole.ST.length + byRole.DT.length) === techs.length && techs.length > 0;
+  return {
+    name: site, n: techs.length, pct: pct,
+    mtBooked: bookedOn('MT'), stBooked: bookedOn('ST'),
+    passOverall: pct >= 80,
+    passST:      stPct >= 60,
+    passMT:      mtOnly >= 1 || mtWaived,
+    mtWaived:    mtWaived,
+    passDT1:     dtCount >= 1,
+    passDTScale: dtCount >= dtNeeded,
+    stPct: stPct, dtCount: dtCount, dtNeeded: dtNeeded, mtOnly: mtOnly, surplusDTs: surplusDTs,
+    qualified: qualified.length, effSTs: effSTs
+  };
+}
+
+// v8: how many MORE technicians a site needs at each level to clear the standard.
+// This is what drives course demand — Lee asked how many courses are needed to
+// make non-compliant sites compliant, not how many it would take to put every
+// technician through every pathway.
+function siteGap(r, pw) {
+  if (!r) return 0;
+  if (pw === 'MT') return Math.max(0, Math.ceil(0.8 * r.n) - r.qualified);
+  if (pw === 'ST') return Math.max(0, Math.ceil(0.6 * r.n) - r.effSTs);
+  if (pw === 'DT') return Math.max(0, r.dtNeeded - r.dtCount);
+  return 0;
+}
+
+// v8: one scope control, shown on every tab that shows more than one site.
+// Network and Car/Van are the same globals everywhere, so a choice made on any
+// tab holds across all of them.
+// v10: the scope controls live in the sticky filter bar, not inside each tab.
+// Kept as a no-op so the render functions read unchanged.
+function scopeBar() { return ''; }
+
+function rerenderAllScoped() {
+  renderFilterBar();
+  renderOverview(); renderPopulation(); renderPipeline(); renderDemand();
+}
+function setScopeNetwork(f) { ovNetworkFilter = f; rerenderAllScoped(); }
+function setScopeType(f)    { ovTypeFilter = f;    rerenderAllScoped(); }
+
+function renderOverview() {
+  var sites = Object.keys(SITE_DATA).sort();
+  var all = [];
+  sites.forEach(function(s) {
+    var t = getSiteType(s);
+    if (ovTypeFilter === 'car' && t === 'van') return;
+    if (ovTypeFilter === 'van' && t === 'car') return;
+    if (ovNetworkFilter === 'mb'      && !MB_OFFICIAL_SET.has(s)) return;
+    if (ovNetworkFilter === 'partner' && !MB_PARTNER_SET.has(s))  return;
+    var r = siteCompliance(s);
+    if (r) { r.siteType = t; all.push(r); }
+  });
+  if (!all.length) { document.getElementById('overviewContent').innerHTML = '<div class="empty-state"><p>No data to display.</p></div>'; return; }
+
+  var total        = all.length;
+  var isFullPass   = function(r) { return r.passOverall && r.passST && r.passMT && r.passDT1 && r.passDTScale; };
+  var nFullPass    = all.filter(isFullPass).length;
+  var nNonComp     = total - nFullPass;
+  var nFailOverall = all.filter(function(r) { return !r.passOverall; }).length;
+  var nFailST      = all.filter(function(r) { return !r.passST; }).length;
+  var nTechsAtFail = all.filter(function(r) { return !isFullPass(r); }).reduce(function(a, r) { return a + r.n; }, 0);
+  function pct(n) { return total > 0 ? Math.round(100 * n / total) : 0; }
+
+  var netLabel  = ovNetworkFilter === 'mb' ? 'MB Retailers' : ovNetworkFilter === 'partner' ? 'Partners' : 'All Sites';
+  var typeLabel = ovTypeFilter === 'car' ? 'Car' : ovTypeFilter === 'van' ? 'Van' : 'Car & Van';
+  var scopeLabel = netLabel + ' · ' + typeLabel;
+
+  // ── Hero: the non-compliant count, not the compliant percentage ────────────
+  var heroHtml =
+    '<div class="ov-hero' + (nNonComp === 0 ? ' clear' : '') + '">' +
+      '<div class="ov-hero-num">' + nNonComp + '</div>' +
+      '<div class="ov-hero-txt">' +
+        '<h2>' + (nNonComp === 1 ? 'site is' : 'sites are') + ' not meeting the minimum franchise standard</h2>' +
+        '<p>' + scopeLabel + ' &nbsp;&middot;&nbsp; ' + total + ' sites in scope &nbsp;&middot;&nbsp; ' + pct(nNonComp) + '% of the network</p>' +
+      '</div>' +
+      '<div class="ov-hero-side">' +
+        '<div><div class="hs-val" style="color:var(--warn)">' + nFailOverall + '</div><div class="hs-lbl">below 80% qualified</div></div>' +
+        '<div><div class="hs-val" style="color:var(--purple)">' + nFailST + '</div><div class="hs-lbl">below 60% ST</div></div>' +
+        '<div><div class="hs-val" style="color:var(--info)">' + nTechsAtFail + '</div><div class="hs-lbl">techs at failing sites</div></div>' +
+      '</div>' +
+    '</div>';
+
+  var donutsHtml =
+    '<div class="donut-grid">' +
+      donut('Overall Compliance', 'All five requirements', nNonComp, nFullPass, 'fail', 'pass', 'Non-compliant', 'Compliant') +
+      donut('80% Qualification', 'MT and above', nFailOverall, total - nFailOverall, 'failOverall', 'passOverall', 'Below 80%', 'At or above 80%') +
+      donut('60% Systems Technician', 'ST share of technicians', nFailST, total - nFailST, 'failST', 'passST', 'Below 60%', 'At or above 60%') +
+    '</div>';
+
+  var CARD_FILTERS = {
+    'all':         function(r) { return true; },
+    'pass':        function(r) { return  isFullPass(r); },
+    'fail':        function(r) { return !isFullPass(r); },
+    'failOverall': function(r) { return !r.passOverall; },
+    'passOverall': function(r) { return  r.passOverall; },
+    'failST':      function(r) { return !r.passST; },
+    'passST':      function(r) { return  r.passST; },
+    'failMT':      function(r) { return !r.passMT; },
+    'failDT':      function(r) { return !r.passDT1 || !r.passDTScale; }
+  };
+  var CARD_LABELS = {
+    'all': 'All Sites', 'pass': 'Fully Compliant', 'fail': 'Non-Compliant',
+    'failOverall': 'Below 80% Qualified', 'passOverall': 'At or Above 80%',
+    'failST': 'Below 60% ST', 'passST': 'At or Above 60% ST',
+    'failMT': 'MT Rule Failed', 'failDT': 'DT Rule Failed'
+  };
+  var shown = all.filter(CARD_FILTERS[ovCardFilter] || CARD_FILTERS['all']);
+  var SORT_FNS = {
+    'name':     function(r) { return r.name.toLowerCase(); },
+    'n':        function(r) { return r.n; },
+    'mtbooked': function(r) { return r.mtBooked; },
+    'stbooked': function(r) { return r.stBooked; },
+    'pct':      function(r) { return r.pct; },
+    'overall':  function(r) { return r.passOverall ? 1 : 0; },
+    'st':       function(r) { return r.passST ? 1 : 0; },
+    'mt':       function(r) { return r.passMT ? 1 : 0; },
+    'dt1':      function(r) { return r.passDT1 ? 1 : 0; },
+    'dtscale':  function(r) { return r.passDTScale ? 1 : 0; },
+    'issues':   function(r) { return [!r.passOverall,!r.passST,!r.passMT,!r.passDT1,!r.passDTScale].filter(Boolean).length; }
+  };
+  var sfn = SORT_FNS[ovSortCol] || SORT_FNS['name'];
+  shown = shown.slice().sort(function(a, b) {
+    var av = sfn(a), bv = sfn(b);
+    if (av < bv) return -1 * ovSortDir;
+    if (av > bv) return  1 * ovSortDir;
+    return a.name.localeCompare(b.name);
+  });
+  var activeLabel = CARD_LABELS[ovCardFilter] || 'All Sites';
+  var filterChip = ovCardFilter !== 'all'
+    ? '<span class="active-filter-chip">Showing: ' + activeLabel + ' (' + shown.length + ')' +
+      ' &nbsp;<span onclick="setOvCardFilter(\'all\')" style="cursor:pointer;font-weight:700;">&times;</span></span>'
+    : '<span style="font-size:0.83rem;color:var(--text-3)">' + shown.length + ' sites</span>';
+  function sortTh(label, key, title) {
+    var isActive = ovSortCol === key;
+    var arrow = isActive ? (ovSortDir === 1 ? ' &#9650;' : ' &#9660;') : ' &#8693;';
+    var arrowCls = isActive ? 'sort-arrow active' : 'sort-arrow';
+    var t = title ? ' title="' + title + '"' : '';
+    return '<th class="sort-th"' + t + ' onclick="setOvSort(\''+key+'\')">' + label +
+      '<span class="'+arrowCls+'">' + arrow + '</span></th>';
+  }
+  var tableRows = shown.map(function(r) {
+    var fails = [!r.passOverall, !r.passST, !r.passMT, !r.passDT1, !r.passDTScale].filter(Boolean).length;
+    var chk = function(pass) { return pass ? '<span class="chk chk-pass">&#10003;</span>' : '<span class="chk chk-fail">&#10007;</span>'; };
+    var mtCell = r.mtWaived
+      ? '<span class="chk" title="Waived — all technicians are ST or DT" style="color:var(--info)">&#9432;</span>'
+      : chk(r.passMT);
+    return '<tr>' +
+      '<td><span class="site-link" onclick="goToSite(\'' + esc(r.name).replace(/'/g, "\\'") + '\')">&#128205; ' + esc(r.name) + '</span></td>' +
+      '<td>' + r.n + '</td>' +
+      '<td style="text-align:center">' + bn(r.mtBooked) + '</td>' +
+      '<td style="text-align:center">' + bn(r.stBooked) + '</td>' +
+      '<td class="pct-cell" style="color:' + gc(r.pct) + '">' + r.pct + '%</td>' +
+      '<td style="text-align:center">' + chk(r.passOverall) + '</td>' +
+      '<td style="text-align:center">' + chk(r.passST)      + '</td>' +
+      '<td style="text-align:center">' + mtCell              + '</td>' +
+      '<td style="text-align:center">' + chk(r.passDT1)     + '</td>' +
+      '<td style="text-align:center">' + chk(r.passDTScale) + '</td>' +
+      '<td><span class="issues-pill issues-' + Math.min(fails,5) + '">' + (fails === 0 ? '&#10003; Pass' : fails + ' issue' + (fails > 1 ? 's' : '')) + '</span></td>' +
+    '</tr>';
+  }).join('');
+
+  document.getElementById('overviewContent').innerHTML =
+    scopeBar(true) +
+    heroHtml +
+    donutsHtml +
+    '<div class="ov-section">' +
+      '<h2>' + scopeLabel + '<span class="sub">compliance breakdown</span>' + infoBtn('infoOv') + '</h2>' +
+      infoPanel('infoOv',
+        'A site is <strong>non-compliant</strong> if it fails any of the five requirements. ' +
+        'Click a chart segment or legend entry above to filter this table; click any column header to sort. ' +
+        'Click a site name to open its detail view. ' +
+        '<strong>MT booked</strong> and <strong>ST booked</strong> count the technicians at that site who have a ' +
+        'dated instructor-led or virtual classroom course on that pathway &mdash; an e-Training enrolment on its own ' +
+        'does not count. A technician is counted once per pathway however many of its courses they have booked.') +
+      '<div class="ov-filter-row">' + filterChip + '</div>' +
+      '<div class="ov-table-wrap"><table class="ov-table">' +
+        '<thead class="ov-sticky-head"><tr>' +
+          sortTh('Site','name') +
+          sortTh('Techs','n') +
+          sortTh('MT booked','mtbooked','Technicians with a dated booking on an MT course') +
+          sortTh('ST booked','stbooked','Technicians with a dated booking on an ST course') +
+          sortTh('Overall %','pct') +
+          sortTh('80%','overall','80% qualified') +
+          sortTh('60% ST','st','60% as ST') +
+          sortTh('MT','mt','At least 1 MT-only') +
+          sortTh('DT','dt1','At least 1 DT') +
+          sortTh('DT Scale','dtscale','Scaled DT count') +
+          sortTh('Result','issues') +
+        '</tr></thead>' +
+        '<tbody>' + tableRows + '</tbody>' +
+      '</table></div>' +
+    '</div>';
+}
+
+// v8: interactive donut — shows compliant AND non-compliant together, and each
+// segment (or legend entry) filters the table below. Hand-drawn SVG so the tool
+// stays self-contained; SheetJS is the only external dependency.
+function donut(title, sub, failN, passN, failKey, passKey, failLbl, passLbl) {
+  var total = failN + passN;
+  var C = 339.292;                       // 2 * pi * r, r = 54
+  var failLen = total ? C * failN / total : 0;
+  var passLen = C - failLen;
+  var failPct = total ? Math.round(100 * failN / total) : 0;
+  var dimFail = ovCardFilter === passKey ? ' dim' : '';
+  var dimPass = ovCardFilter === failKey ? ' dim' : '';
+  function seg(len, offset, colour, dim, key, label, n) {
+    if (!n) return '';
+    return '<circle class="donut-seg' + dim + '" cx="70" cy="70" r="54" fill="none" stroke="' + colour + '"' +
+      ' stroke-width="18" stroke-dasharray="' + len.toFixed(2) + ' ' + (C - len).toFixed(2) + '"' +
+      ' stroke-dashoffset="' + offset.toFixed(2) + '" onclick="setOvCardFilter(\'' + key + '\')">' +
+      '<title>' + label + ': ' + n + ' of ' + total + '</title></circle>';
+  }
+  function legend(key, colour, label, n) {
+    return '<div class="dl-item' + (ovCardFilter === key ? ' active' : '') + '" onclick="setOvCardFilter(\'' + key + '\')">' +
+      '<span class="dl-sw" style="background:' + colour + '"></span>' + label + ' (' + n + ')</div>';
+  }
+  return '<div class="donut-card">' +
+    '<h3>' + title + '</h3><div class="dc-sub">' + sub + '</div>' +
+    '<svg viewBox="0 0 140 140" width="148" height="148">' +
+      '<g transform="rotate(-90 70 70)">' +
+        '<circle cx="70" cy="70" r="54" fill="none" stroke="var(--surface-3)" stroke-width="18"/>' +
+        seg(failLen, 0, 'var(--fail)', dimFail, failKey, failLbl, failN) +
+        seg(passLen, -failLen, 'var(--pass)', dimPass, passKey, passLbl, passN) +
+      '</g>' +
+      '<text x="70" y="68" text-anchor="middle" font-size="26" font-weight="700" fill="' + (failN ? 'var(--fail)' : 'var(--pass)') + '">' + failPct + '%</text>' +
+      '<text x="70" y="87" text-anchor="middle" font-size="10.5" fill="var(--text-3)">' + failN + ' of ' + total + ' sites</text>' +
+    '</svg>' +
+    '<div class="donut-legend">' +
+      legend(failKey, 'var(--fail)', failLbl, failN) +
+      legend(passKey, 'var(--pass)', passLbl, passN) +
+    '</div>' +
+  '</div>';
+}
+
+function setOvCardFilter(f) {
+  ovCardFilter = f;
+  renderOverview();
+}
+
+function setOvTypeFilter(f) {
+  ovTypeFilter = f;
+  renderOverview();
+}
+
+function setOvSort(col) {
+  if (ovSortCol === col) { ovSortDir = ovSortDir * -1; }
+  else { ovSortCol = col; ovSortDir = col === 'name' ? 1 : -1; }
+  renderOverview();
+}
+
+function setOvNetworkFilter(f) {
+  ovNetworkFilter = f;
+  renderOverview();
+}
+
+function goToSite(name) {
+  switchTab('bysite');
+  var s = document.getElementById('siteSelect');
+  s.value = name;
+  renderSite();
+}// ── Excel loading ────────────────────────────────────────────────────────────
+var TECH_JOBS_SET = new Set([
+  'Maintenance Technician Car','Maintenance Technician Car & Van','Maintenance Technician Van',
+  'Systems Technician Car','Systems Technician Car & Van','Systems Technician Van',
+  'Technician Car','Technician Car & Van','Technician Van',
+  'Diagnostic Technician Car','Diagnostic Technician Car & Van','Diagnostic Technician Van',
+  'Apprentice Technician','Mobile Technician','S24h Technician','Fleet Workshop Technician'
+]);
+var QUAL_PREFIXES = [
+  ['MBPCQMT','PC_MT'],['MBPCQST','PC_ST'],['MBPCQDT','PC_DT'],
+  ['MBVQMT','Van_MT'],['MBVQST','Van_ST'],['MBVQDT','Van_DT']
+];
+
+// ── Official MB network lists (sourced from Copy of MA's.xlsx) ────────────────
+// Names are matched exactly to PDP Course Data outlet names (column B)
+var MB_OFFICIAL_SITES = [
+  'Mercedes-Benz of Belfast','Mercedes-Benz of Portadown',
+  'Mercedes-Benz of Perth','Mercedes-Benz of Dundee','Mercedes-Benz of Aberdeen',
+  'Mercedes-Benz of Inverness','Mercedes-Benz of Grangemouth',
+  'Mercedes-Benz of Edinburgh','Mercedes-Benz of Coldstream',
+  'Mercedes-Benz of Edinburgh - East','Mercedes-Benz of Dunfermline (After Sales)',
+  'Mercedes-Benz of Giffnock','Mercedes-Benz of Glasgow',
+  'Mercedes-Benz of Ayr','Mercedes-Benz of Hamilton (After Sales)',
+  'Mercedes-Benz of Leeds','Mercedes-Benz of Bradford',
+  'Mercedes-Benz of Huddersfield','Mercedes-Benz of Wakefield',
+  'Mercedes-Benz of Southend','Mercedes-Benz of Chelmsford',
+  'Mercedes-Benz of Ipswich','Mercedes-Benz of Lakeside','Mercedes-Benz of Colchester',
+  'Mercedes-Benz of Liverpool','Mercedes-Benz of Cheshire Oaks',
+  'Mercedes-Benz of North Wales','Mercedes-Benz of Warrington','Mercedes-Benz of Southport',
+  'Mercedes-Benz of Nottingham','Mercedes-Benz of Derby','Mercedes-Benz of Leicester',
+  'Mercedes-Benz of Oxford','Mercedes-Benz of Stratford-upon-Avon','Mercedes-Benz of Coventry',
+  'Mercedes-Benz of Cambridge','Mercedes-Benz of Norwich','Mercedes-Benz of Peterborough',
+  "Mercedes-Benz of Bury St. Edmunds",'Mercedes-Benz of Kings Lynn',
+  'Mercedes-Benz of Stevenage',"Mercedes-Benz of Bishop's Stortford",
+  'Mercedes-Benz of Hertford','Mercedes-Benz of Hemel Hempstead',
+  'Mercedes-Benz of Blackburn','Mercedes-Benz of Blackpool',
+  'Mercedes-Benz of Bolton','Mercedes-Benz of Preston',
+  'Mercedes-Benz of Chichester','Mercedes-Benz of Portsmouth',
+  'Mercedes-Benz of Southampton','Mercedes-Benz of Winchester',
+  'Mercedes-Benz of Shrewsbury','Mercedes-Benz of Stafford',
+  'Mercedes-Benz of Stoke','Mercedes-Benz of Stourbridge',
+  'Mercedes-Benz of Wolverhampton','Mercedes-Benz of Worcester',
+  'Mercedes-Benz of Ashford','Mercedes-Benz of Maidstone',
+  'Mercedes-Benz of Tonbridge','Mercedes-Benz of Canterbury',
+  'Mercedes-Benz of Brighton','Mercedes-Benz of Eastbourne','Mercedes-Benz of Gatwick',
+  'Mercedes-Benz of Dorchester','Mercedes-Benz of Poole','Mercedes-Benz of Salisbury',
+  'Mercedes-Benz of Newbury','Mercedes-Benz of Basingstoke','Mercedes-Benz of Guildford',
+  'Mercedes-Benz of Hindhead (After Sales)','Mercedes-Benz of Farnborough (After Sales)',
+  'Mercedes-Benz of Epsom',
+  'Van Mossel Jacksons Guernsey','Van Mossel Jacksons Jersey',
+  'Van Mossel Jacksons Isle of Man','Van Mossel Esplanade Isle of Wight',
+  'Mercedes-Benz of Macclesfield','Mercedes-Benz of Stockport','Mercedes-Benz of Whitefield',
+  'Mercedes-Benz of Birmingham','Mercedes-Benz of Solihull','Mercedes-Benz of Solihull (After Sales)',
+  'Mercedes-Benz of Tamworth',
+  'Mercedes-Benz of Newcastle upon Tyne','Mercedes-Benz of Carlisle',
+  'Mercedes-Benz of Sunderland','Mercedes-Benz of Teesside',
+  'Mercedes-Benz of Milton Keynes','Mercedes-Benz of Bedford','Mercedes-Benz of Northampton',
+  'Mercedes-Benz of Bath','Mercedes-Benz of Bristol',
+  'Mercedes-Benz of Cheltenham & Gloucester','Mercedes-Benz of Swindon',
+  'Mercedes-Benz of Temple Fortune','Mercedes-Benz of Watford','Mercedes-Benz of Colindale',
+  'Mercedes-Benz of Loughton','Mercedes-Benz of Stratford (After Sales)',
+  'Mercedes-Benz of Heathrow (After Sales)','Mercedes-Benz of West London',
+  'Mercedes-Benz of Exeter','Mercedes-Benz of Plymouth',
+  'Mercedes-Benz of Taunton','Mercedes-Benz of Truro',
+  'Mercedes-Benz of Bridgend','Mercedes-Benz of Cardiff & Newport',
+  'Mercedes-Benz of Neyland','Mercedes-Benz of Swansea',
+  'Mercedes-Benz of Boston','Mercedes-Benz of Grimsby',
+  'Mercedes-Benz of Hull','Mercedes-Benz of Lincoln',
+  'Mercedes-Benz of York','Mercedes-Benz of Harrogate','Mercedes-Benz of Sheffield',
+  'Mercedes-Benz of Chesterfield','Mercedes-Benz of Doncaster',
+  'Mercedes-Benz of Croydon','Mercedes-Benz of Brooklands',
+  'Mercedes-Benz of Dartford','Mercedes-Benz of West Bromley (After Sales)',
+  'Mercedes-Benz of Ascot','Mercedes-Benz of Reading','Mercedes-Benz of Slough',
+  'Mercedes-Benz of Slough (After Sales)','Mercedes-Benz of Aylesbury','Mercedes-Benz of Beaconsfield',
+  // Van network retailers
+  'Arthur Spriggs & Sons - Tewkesbury',
+  'Bell Truck & Van (Billingham)','Bell Truck & Van (Spennymoor)','Bell Truck and Van - Stockton',
+  'BLS Truck and Van - Aberdeen',
+  'Ciceley Commercials - Blackburn','Ciceley Commercials - Bolton','Ciceley Commercials - Carlisle','Ciceley Commercials - Dumfries',
+  'Ciceley Bolton Mercedes-Benz Authorised Repairer',
+  'Euro Commercials - Avonmouth','Euro Commercials - Cardiff','Euro Commercials - Exeter',
+  'Euro Commercials - Highbridge','Euro Commercials - Newport',
+  'Euro Commercials - Swansea','Euro Commercials - Service Factory Swansea',
+  'eStar Truck and Van - Deeside','eStar Truck and Van - Manchester','eStar Truck and Van - Stoke',
+  'eStar Truck Service (Knowsley)','eStar Van Service - Knowsley',
+  'LSH Birmingham Parts Distribution Centre',
+  'Marshall Truck & Van (Croydon)','Marshall Truck and Van  - Southampton',
+  'Marshall Truck and Van - Andover','Marshall Truck and Van - Fareham','Marshall Van - Croydon',
+  'MBNI Truck and Van - Dungannon','MBNI Truck and Van - Newtownabbey',
+  'MBNI Dungannon Mercedes-Benz Authorised Repairer',
+  'Mercedes-Benz Van Centre - Ipswich','Mercedes-Benz Van Centre - Newcastle','Mercedes-Benz Van Service - Thurrock',
+  'Mercedes-Benz of Exeter - Van Service','Mercedes-Benz of Plymouth - Van Service','Mercedes-Benz of Taunton - Van Service',
+  'Mertrux Truck and Van - Derby','Mertrux Truck and Van - Leicester',
+  'Mertrux Truck and Van - Mansfield','Mertrux Truck and Van - Nottingham',
+  'Mertrux Mercedes-Benz Authorised Repairer',
+  'Midlands Truck and Van - Boston','Midlands Truck and Van - Coventry','Midlands Truck and Van - Dunstable',
+  'Midlands Truck and Van - Milton Keynes','Midlands Truck and Van - Peterborough',
+  'Midlands Truck and Van - Smethwick','Midlands Truck and Van - Wellingborough','Midlands Truck and Van - Wolverhampton',
+  'Northside Truck and Van - Bradford','Northside Truck and Van - Doncaster','Northside Truck and Van - Hull',
+  'Northside Truck and Van - Immingham','Northside Truck and Van - Leeds',
+  'Northside Truck and Van - Sheffield','Northside Truck and Van - York',
+  'Rossetts Commercials - Aldershot','Rossetts Commercials - Crawley','Rossetts Commercials - Eastbourne',
+  'Rossetts Commercials - Non-Retail Parts Hub - Crawley','Rossetts Commercials - Worthing',
+  'Rygor - Chilcompton','Rygor - Gloucester','Rygor - Heathrow','Rygor - Kidderminster',
+  'Rygor - Nuneaton','Rygor - Oxford','Rygor - Reading','Rygor - Swindon','Rygor - Westbury',
+  'Rygor Auto - Non-Retail Parts Hub - Heathrow',
+  'Rygor Heathrow Mercedes-Benz Authorised Repairer','Rygor Mercedes-Benz Authorised Repairer',
+  'SAGA Truck and Van - Ashford','SAGA Truck and Van - Dartford','SAGA Truck and Van - Hatfield',
+  'SAGA Truck and Van - Ipswich','SAGA Truck and Van - Norwich','SAGA Truck and Van - Sittingbourne',
+  'SAGA Truck and Van - Tonbridge','SAGA Truck and Van - Witham',
+  'Sandown Parts Distribution Centre','Sandown Van Centre - Poole',
+  'Sytner Colindale Trade Parts Centre',
+  'Western Commercial - Bellshill','Western Commercial - Dundee',
+  'Western Commercial - Edinburgh','Western Commercial - Glasgow'
+];
+var MB_PARTNER_SITES = [
+  'Europa Mercedes-Benz Authorised Repairer',
+  'Regent Garage MB Authorised Repairer'
+];
+var MB_OFFICIAL_SET = new Set(MB_OFFICIAL_SITES);
+var MB_PARTNER_SET  = new Set(MB_PARTNER_SITES);
+// ─── v8: Qualification pathway definitions ───────────────────────────────────
+// Source: "Technician Qualification Pathways.pdf" (Qualification and Programme
+// Brochure — GTLS CHANNEL), cross-checked against the 14 Sep 2026 PDP export —
+// every code below was confirmed present in that data.
+//
+// PDP codes carry a brand + sequence suffix, e.g. T2121F-UK.PC-0007. Matching is
+// therefore base code + brand variant:
+//   .PC = Car   ·   .VN = Van   ·   bare -UK = counts for both (legacy rows)
+//   .TR = Truck — ignored, truck data is out of scope for this tool.
+//
+// The "courses" listed are the instructor-led skills-verification courses, i.e.
+// the ones that have to be scheduled. The digital pre-requisites are deliberately
+// not tracked here: they are self-serve e-Learning and never a scheduling constraint.
+var PATHWAYS = {
+  MT: {
+    label: 'Maintenance Technician', short: 'MT', programme: 'T2112Q',
+    courses: [
+      { code: 'T2115F', name: 'Electrical Systems Basic Knowledge',      days: 2 },
+      { code: 'T2116F', name: 'Maintenance and Service Basic Knowledge', days: 2 }
+    ]
+  },
+  ST: {
+    label: 'Systems Technician (Basic)', short: 'ST', programme: 'T3035Q',
+    courses: [
+      { code: 'T0004F', name: 'Diagnosis Strategy — Part 1',                days: 4 },
+      { code: 'T2121F', name: 'Electrical Measurement & Scope',             days: 2 },
+      { code: 'T2122F', name: 'On-board Electrical System and Networking',  days: 2 }
+    ]
+  },
+  DT: {
+    label: 'Diagnostic Technician', short: 'DT', programme: 'T2482Q',
+    courses: [
+      { code: 'T0005F', name: 'Diagnosis Strategy — Part 2',       days: 4 },
+      { code: 'T2777F', name: 'C-DT Initial Test',                 days: 1 },
+      { code: 'T2778B', name: 'C-DT Electrical Components',        days: 4 },
+      { code: 'T2779B', name: 'C-DT Drivetrain',                   days: 4 },
+      { code: 'T2780B', name: 'C-DT Suspension',                   days: 4 },
+      { code: 'T2781F', name: 'C-DT Test Preparation',             days: 2 },
+      { code: 'T2782F', name: 'C-DT Final Test',                   days: 1 }
+    ]
+  }
+};
+var PW_ORDER = ['MT','ST','DT'];
+
+// base course code -> which pathway slot it fills
+var COURSE_LOOKUP = (function() {
+  var m = {};
+  PW_ORDER.forEach(function(pw) {
+    m[PATHWAYS[pw].programme] = { pathway: pw, kind: 'programme', idx: -1 };
+    PATHWAYS[pw].courses.forEach(function(c, i) {
+      m[c.code] = { pathway: pw, kind: 'course', idx: i };
+    });
+  });
+  return m;
+})();
+
+function courseBase(courseNo) {
+  return String(courseNo || '').trim().toUpperCase().split('-')[0];
+}
+
+// 'PC' | 'VN' | 'BOTH' (legacy bare -UK) | null (truck — ignore)
+function courseBrand(courseNo) {
+  var s = String(courseNo || '').toUpperCase();
+  if (s.indexOf('.PC') >= 0) return 'PC';
+  if (s.indexOf('.VN') >= 0) return 'VN';
+  if (s.indexOf('.TR') >= 0) return null;
+  return 'BOTH';
+}
+
+// ─── v8: enrolled vs booked ──────────────────────────────────────────────────
+// The distinction the network actually cares about. A delegate can sit on an
+// e-Training enrolment indefinitely; "booked" means a real course date exists.
+//   passed  — Registration status = Passed
+//   booked  — Enrolled on an instructor-led / virtual classroom course, date ahead
+//   await   — same, but the date has passed and the result is not yet in
+//   enrol   — Enrolled with no course date (e-Training, or pathway enrolment only)
+//   none    — no record at all
+var STATE_RANK = { none: 0, enrol: 1, await: 2, booked: 3, passed: 4 };
+var PW_STATE_META = {
+  passed: { cls: 'pw-pass',   sym: '&#10003;', label: 'Passed' },
+  booked: { cls: 'pw-booked', sym: '&#9681;',  label: 'Booked' },
+  await:  { cls: 'pw-await',  sym: '&#9681;',  label: 'Booked — awaiting result' },
+  enrol:  { cls: 'pw-enrol',  sym: '&#9675;',  label: 'Enrolled, not booked' },
+  none:   { cls: 'pw-none',   sym: '&#10007;', label: 'Not enrolled' }
+};
+var CLASSROOM_FORMS = { 'Instructor-led': 1, 'Virtual Classroom': 1, 'Assessment': 1 };
+var TODAY_ISO = localISO(new Date());
+
+function rowState(learningForm, regStatus, startISO) {
+  if (regStatus === 'Passed') return 'passed';
+  if (regStatus !== 'Enrolled' && regStatus !== 'In Progress') return 'none';
+  if (CLASSROOM_FORMS[learningForm] && startISO) {
+    return startISO >= TODAY_ISO ? 'booked' : 'await';
+  }
+  return 'enrol';
+}
+
+function blankSlot(n) {
+  var c = [], d = [];
+  for (var i = 0; i < n; i++) { c.push('none'); d.push(null); }
+  return { prog: 'none', c: c, d: d };
+}
+
+function pwEnsure(person, pw) {
+  if (!person.pw) person.pw = {};
+  if (!person.pw[pw]) {
+    var n = PATHWAYS[pw].courses.length;
+    person.pw[pw] = { PC: blankSlot(n), VN: blankSlot(n) };
+  }
+  return person.pw[pw];
+}
+
+function pwSet(slot, kind, idx, state, dateISO, facility) {
+  if (kind === 'programme') {
+    if (STATE_RANK[state] > STATE_RANK[slot.prog]) slot.prog = state;
+  } else if (STATE_RANK[state] > STATE_RANK[slot.c[idx]]) {
+    slot.c[idx] = state;
+    slot.d[idx] = dateISO ? { date: dateISO, fac: facility || '' } : null;
+  }
+}
+
+// Which brand pathway applies to this technician — from the job title, falling
+// back to the site type for roles that name neither (S24h, Mobile, Apprentice).
+function techBrand(p, siteType) {
+  var j = p.job || '';
+  var car = j.indexOf('Car') >= 0, van = j.indexOf('Van') >= 0;
+  if (car && van) return 'BOTH';
+  if (van) return 'VN';
+  if (car) return 'PC';
+  return siteType === 'van' ? 'VN' : 'PC';
+}
+
+// Resolved view of one pathway for one technician. 'BOTH' takes the stronger
+// state of the two brands so a dual-brand tech is never shown as behind twice.
+function pwView(person, pw, brand) {
+  var n = PATHWAYS[pw].courses.length;
+  var rec = person.pw && person.pw[pw];
+  if (!rec) return blankSlot(n);
+  if (brand === 'PC' || brand === 'VN') return rec[brand];
+  var out = blankSlot(n);
+  out.prog = STATE_RANK[rec.PC.prog] >= STATE_RANK[rec.VN.prog] ? rec.PC.prog : rec.VN.prog;
+  for (var i = 0; i < n; i++) {
+    var use = STATE_RANK[rec.PC.c[i]] >= STATE_RANK[rec.VN.c[i]] ? rec.PC : rec.VN;
+    out.c[i] = use.c[i];
+    out.d[i] = use.d[i];
+  }
+  return out;
+}
+
+function pwDot(state, courseName, info) {
+  var m = PW_STATE_META[state] || PW_STATE_META.none;
+  var tip = courseName ? courseName + ' — ' + m.label : m.label;
+  if (info && info.date) tip += ' (' + info.date + (info.fac ? ', ' + info.fac : '') + ')';
+  return '<span class="pw ' + m.cls + '" title="' + esc(tip) + '">' + m.sym + '</span>';
+}
+var ROLE_PRIORITY = ['PC_DT','Van_DT','PC_ST','Van_ST','PC_MT','Van_MT'];
+
+// v11: read the date off the Date in LOCAL time, not via toISOString().
+//
+// SheetJS builds cellDates values at local midnight, so in BST a cell holding
+// 15 Aug 2025 is 2025-08-14T23:00:00Z and toISOString() reported it as the
+// 14th — every date a day early, on any machine ahead of UTC (the UK in
+// summer, CET dealer machines all year). That reached people: Course Date in
+// the delegate Excel export came from here. The fast reader converts serials
+// straight to ISO and never builds a Date, so this now only guards the
+// SheetJS fallback — both paths must agree.
+function localISO(d) {
+  var m = d.getMonth() + 1, day = d.getDate();
+  return d.getFullYear() + '-' + (m < 10 ? '0' : '') + m + '-' + (day < 10 ? '0' : '') + day;
+}
+
+function toISODate(val) {
+  if (!val) return null;
+  if (val instanceof Date) {
+    if (isNaN(val)) return null;
+    return localISO(val);
+  }
+  var s = String(val).trim().slice(0, 10);
+  return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : null;
+}
+
+function highestQualDate(qualDates) {
+  for (var i = 0; i < ROLE_PRIORITY.length; i++) {
+    if (qualDates[ROLE_PRIORITY[i]]) return qualDates[ROLE_PRIORITY[i]];
+  }
+  for (var k in qualDates) { if (qualDates[k]) return qualDates[k]; }
+  return null;
+}
+
+function durationStr(isoDate) {
+  if (!isoDate) return '&mdash;';
+  var then = new Date(isoDate);
+  if (isNaN(then)) return '&mdash;';
+  var now = new Date();
+  var months = (now.getFullYear() - then.getFullYear()) * 12 + (now.getMonth() - then.getMonth());
+  if (months < 1) return 'This month';
+  if (months < 12) return months + ' month' + (months === 1 ? '' : 's');
+  var yrs = Math.floor(months / 12);
+  var mo  = months % 12;
+  return yrs + ' yr' + (yrs === 1 ? '' : 's') + (mo > 0 ? ' ' + mo + ' mo' : '');
+}
+
+function getQual(courseNo) {
+  var s = String(courseNo || '').trim();
+  for (var i = 0; i < QUAL_PREFIXES.length; i++) {
+    if (s.indexOf(QUAL_PREFIXES[i][0]) === 0) return QUAL_PREFIXES[i][1];
+  }
+  return null;
+}
+
+// ─── v11: fast XLSX reader ───────────────────────────────────────────────────
+// SheetJS took 12.5s and 1.8GB of heap on the September 2026 export (598,393
+// rows). Nearly all of it went on building a cell object for each of 8.4M
+// cells: sheet1.xml inflates from 36MB to 316MB, but inflating it is only
+// ~230ms. This reader goes straight from the decompressed bytes to rows and
+// does the same job in ~0.6s using ~0.5GB.
+//
+// It can afford to, because the PDP export is a narrow case: one worksheet, no
+// inline strings, no formulas, and only 49,099 unique strings behind 8.4M
+// cells — so nearly every cell is a pointer to a string that already exists
+// rather than a fresh allocation.
+//
+// Anything it cannot handle throws, and processFile falls back to SheetJS,
+// which stays loaded for the delegate Excel export in any case.
+
+var XL_DEC = new TextDecoder('utf-8');
+var XL_LATIN = new TextDecoder('latin1');
+
+// Locate the parts inside the .xlsx (a zip) by reading the central directory.
+// Cheaper than unzipping everything: the sheet is the only large part.
+function xlZipEntries(u8) {
+  var dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength);
+  var eocd = -1;
+  for (var i = u8.length - 22; i >= 0 && i > u8.length - 66000; i--) {
+    if (dv.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
+  }
+  if (eocd < 0) throw new Error('not a zip archive');
+  var cd = dv.getUint32(eocd + 16, true), n = dv.getUint16(eocd + 10, true), out = {};
+  for (var k = 0; k < n; k++) {
+    var method = dv.getUint16(cd + 10, true), csize = dv.getUint32(cd + 20, true);
+    var nlen = dv.getUint16(cd + 28, true), elen = dv.getUint16(cd + 30, true), clen = dv.getUint16(cd + 32, true);
+    var lho = dv.getUint32(cd + 42, true);
+    var name = XL_LATIN.decode(u8.subarray(cd + 46, cd + 46 + nlen));
+    var lnlen = dv.getUint16(lho + 26, true), lelen = dv.getUint16(lho + 28, true);
+    var start = lho + 30 + lnlen + lelen;
+    out[name] = { method: method, data: u8.subarray(start, start + csize) };
+    cd += 46 + nlen + elen + clen;
+  }
+  return out;
+}
+
+// Native decompression — no library. Throws on browsers without
+// DecompressionStream, which sends processFile down the SheetJS path.
+function xlInflate(entry) {
+  if (!entry) throw new Error('missing part');
+  if (entry.method === 0) return Promise.resolve(entry.data);
+  if (typeof DecompressionStream === 'undefined') throw new Error('DecompressionStream unsupported');
+  var ds = new DecompressionStream('deflate-raw');
+  var stream = new Blob([entry.data]).stream().pipeThrough(ds);
+  return new Response(stream).arrayBuffer().then(function(ab) { return new Uint8Array(ab); });
+}
+
+// Which style indices mean "this number is a date"?
+//
+// This must be read from the file, never assumed. The September and April
+// exports declare four cellXfs and date cells carry s="3"; the March 2026
+// export declares three and uses s="2". Hardcoding either one silently turns
+// every date in the other file into a raw serial number, which toISODate then
+// discards — so the dates would vanish with no error at all.
+function xlDateStyles(stylesXml) {
+  var s = stylesXml ? XL_DEC.decode(stylesXml) : '';
+  var set = {}, custom = {};
+  var re = /<numFmt[^>]*numFmtId="(\d+)"[^>]*formatCode="([^"]*)"/g, m;
+  while ((m = re.exec(s))) {
+    // Strip quoted literals and [colour]/[condition] blocks before looking for
+    // date tokens, so a format like "Total";[Red]0 is not mistaken for one.
+    var code = m[2].replace(/"[^"]*"/g, '').replace(/\[[^\]]*\]/g, '');
+    custom[m[1]] = /[ymd]/i.test(code);
+  }
+  function isDateFmt(id) {
+    if (custom[id] !== undefined) return custom[id];
+    var n = +id;
+    return (n >= 14 && n <= 22) || (n >= 27 && n <= 36) || (n >= 45 && n <= 47) || (n >= 50 && n <= 58);
+  }
+  var block = s.slice(s.indexOf('<cellXfs'), s.indexOf('</cellXfs>'));
+  var xfs = block.match(/<xf[^>]*\/?>/g) || [];
+  for (var i = 0; i < xfs.length; i++) {
+    var id = (xfs[i].match(/numFmtId="(\d+)"/) || [0, '0'])[1];
+    if (isDateFmt(id)) set[i] = 1;
+  }
+  return set;
+}
+
+// The shared-string table: decoded once, then referenced 8.4M times.
+function xlSharedStrings(bytes) {
+  if (!bytes) return [];
+  var s = XL_DEC.decode(bytes), out = [], i = 0;
+  function dec(x) {
+    return x.indexOf('&') < 0 ? x : x.replace(/&quot;/g, '"').replace(/&apos;/g, "'")
+      .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
+  }
+  while ((i = s.indexOf('<si>', i)) >= 0) {
+    var e = s.indexOf('</si>', i), txt = '', j = i;
+    for (;;) {
+      var a = s.indexOf('<t', j); if (a < 0 || a > e) break;
+      var b = s.indexOf('>', a);
+      if (s.charAt(b - 1) === '/') { j = b + 1; continue; }   // <t/>, an empty run
+      var c = s.indexOf('</t>', b);
+      txt += dec(s.slice(b + 1, c)); j = c + 4;
+    }
+    out.push(txt); i = e + 5;
+  }
+  return out;
+}
+
+// One pass over the sheet bytes, emitting rows of NCOL values. Dates come out
+// as 'YYYY-MM-DD' strings straight from the serial, which is both faster than
+// building Date objects and free of the local-midnight shift that made every
+// date a day early in v10 (see toISODate).
+function xlScanSheet(B, sst, dateStyles, ncol, epoch) {
+  var isoCache = {};
+  function serialISO(n) {
+    var v = isoCache[n];
+    if (v === undefined) {
+      var d = new Date(epoch + n * 86400000);
+      v = isNaN(d) ? '' : d.toISOString().slice(0, 10);
+      isoCache[n] = v;
+    }
+    return v;
+  }
+  var N = B.length, out = [], row = null;
+  var LT = 60, C_ = 99, R_ = 114, EQ = 61, QU = 34, S_ = 115, T_ = 116, V_ = 118,
+      GT = 62, SL = 47, O_ = 111, W_ = 119, SP = 32;
+  var i = 0;
+  while (i < N) {
+    if (B[i] !== LT) { i++; continue; }
+    // <row r="N" …>
+    if (B[i + 1] === R_ && B[i + 2] === O_ && B[i + 3] === W_ && (B[i + 4] === SP || B[i + 4] === GT)) {
+      var p0 = i + 4, rn = 0;
+      while (p0 < N && B[p0] !== GT) {
+        if (B[p0] === R_ && B[p0 + 1] === EQ) {
+          p0 += 3;
+          while (B[p0] >= 48 && B[p0] <= 57) { rn = rn * 10 + (B[p0] - 48); p0++; }
+          break;
+        }
+        p0++;
+      }
+      row = new Array(ncol);
+      for (var z = 0; z < ncol; z++) row[z] = '';
+      // Honour the declared row number so a gap in the sheet stays a gap,
+      // exactly as sheet_to_json would leave it.
+      var idx = rn > 0 ? rn - 1 : out.length;
+      while (out.length < idx) out.push(null);
+      out[idx] = row;
+      i = p0; continue;
+    }
+    if (B[i + 1] !== C_ || B[i + 2] !== SP) { i++; continue; }
+    // <c r="AB12" [s="n"] [t="s"]>
+    var p = i + 3, col = -1, isStr = false, isDate = false;
+    while (p < N && B[p] !== GT) {
+      if (B[p] === R_ && B[p + 1] === EQ) {
+        p += 3; col = 0;
+        while (B[p] >= 65 && B[p] <= 90) { col = col * 26 + (B[p] - 64); p++; }
+        col--;
+        while (p < N && B[p] !== QU) p++;
+      } else if (B[p] === T_ && B[p + 1] === EQ && B[p + 3] === S_ && B[p + 4] === QU) {
+        isStr = true; p += 5;                      // exactly t="s", not t="str"
+      } else if (B[p] === S_ && B[p + 1] === EQ) {
+        p += 3; var sv = 0;
+        while (B[p] >= 48 && B[p] <= 57) { sv = sv * 10 + (B[p] - 48); p++; }
+        if (dateStyles[sv]) isDate = true;
+        p++;
+      } else p++;
+    }
+    if (B[p - 1] === SL) { i = p + 1; continue; }   // <c …/>, an empty cell
+    p++;
+    if (B[p] === LT && B[p + 1] === V_) {
+      p += 3;
+      var int = 0, intOnly = true, numeric = true, dots = 0, st = p;
+      while (p < N && B[p] !== LT) {
+        var d = B[p];
+        if (d >= 48 && d <= 57) { if (dots === 0) int = int * 10 + (d - 48); else intOnly = false; }
+        else if (d === 46 && dots === 0) { dots = 1; intOnly = false; }
+        else { numeric = false; intOnly = false; }
+        p++;
+      }
+      if (row && col >= 0 && col < ncol) {
+        if (isStr && intOnly) row[col] = sst[int];
+        else if (isDate && numeric && int > 0) row[col] = serialISO(int);
+        else row[col] = XL_DEC.decode(B.subarray(st, p));
+      }
+      while (p < N && B[p] !== GT) p++;
+    }
+    i = p;
+  }
+  for (var q = 0; q < out.length; q++) {
+    if (!out[q]) { out[q] = new Array(ncol); for (var y = 0; y < ncol; y++) out[q][y] = ''; }
+  }
+  return out;
+}
+
+// Returns rows[][NCOL] equivalent to
+// XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' }) over the first
+// worksheet, except that dates arrive as ISO strings rather than Date objects.
+function scanXlsxRows(raw, ncol, onStage) {
+  var NCOL = ncol || 14;
+  var entries = xlZipEntries(raw);
+  var sheetName = null;
+  for (var name in entries) {
+    if (name.indexOf('xl/worksheets/sheet') === 0 && name.slice(-4) === '.xml') {
+      if (!sheetName || name < sheetName) sheetName = name;
+    }
+  }
+  if (!sheetName) throw new Error('no worksheet found');
+
+  var wbXml = entries['xl/workbook.xml'] ? XL_LATIN.decode(entries['xl/workbook.xml'].data.slice(0, 4096)) : '';
+  var is1904 = /date1904="(1|true)"/.test(wbXml);
+  var epoch = is1904 ? Date.UTC(1904, 0, 1) : Date.UTC(1899, 11, 30);
+
+  if (onStage) onStage('Decompressing');
+  // styles.xml and sharedStrings.xml are optional: a sheet with no styled cells
+  // or no strings is still valid, and neither absence is worth a fallback.
+  function inflateOptional(entry) {
+    return entry ? xlInflate(entry) : Promise.resolve(null);
+  }
+  return inflateOptional(entries['xl/styles.xml']).then(function(stylesXml) {
+    var dateStyles = xlDateStyles(stylesXml);
+    return inflateOptional(entries['xl/sharedStrings.xml']).then(function(ssBytes) {
+      var sst = xlSharedStrings(ssBytes);
+      return xlInflate(entries[sheetName]).then(function(shBytes) {
+        if (onStage) onStage('Reading rows');
+        var rows = xlScanSheet(shBytes, sst, dateStyles, NCOL, epoch);
+        shBytes = null;          // release the ~300MB of XML before rendering
+        return rows;
+      });
+    });
+  });
+}
+
+function dzOver(e)  { e.preventDefault(); document.getElementById('dropZone').classList.add('drag-over'); }
+function dzLeave(e) { document.getElementById('dropZone').classList.remove('drag-over'); }
+function dzDrop(e)  { e.preventDefault(); dzLeave(e); if (e.dataTransfer.files[0]) processFile(e.dataTransfer.files[0]); }
+function fileChosen(inp) { if (inp.files[0]) processFile(inp.files[0]); inp.value = ''; }
+
+// v11: the fast reader above is tried first and SheetJS is the fallback, so an
+// export it cannot handle still loads rather than failing in front of a user.
+function readRows(raw, onStage) {
+  return Promise.resolve().then(function() {
+    return scanXlsxRows(raw, 14, onStage);
+  }).catch(function(err) {
+    console.warn('Fast reader unavailable, falling back to SheetJS:', err && err.message);
+    if (typeof XLSX === 'undefined') throw new Error('SheetJS library not loaded — check your internet connection and refresh the page.');
+    if (onStage) onStage('Reading rows');
+    var wb = XLSX.read(raw, { type: 'array', cellDates: true });
+    var ws = wb.Sheets[wb.SheetNames[0]];
+    return XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+  });
+}
+
+function processFile(file) {
+  var dz = document.getElementById('dropZone');
+  dz.textContent = 'Reading “' + file.name + '” …';
+  function stage(msg) { dz.textContent = msg + ' “' + file.name + '” …'; }
+  file.arrayBuffer().then(function(ab) {
+    return readRows(new Uint8Array(ab), stage);
+  }).then(function(rows) {
+    try {
+      var parsed = parseExcelRows(rows);
+      var siteCount = Object.keys(parsed).length;
+      if (siteCount === 0) throw new Error('No site data found — check the file has the expected columns (outlet name in column B, learning form in C, course no in D, person status in F, job in J, start date in K, reg status in N).');
+      SITE_DATA = parsed;
+      var prevSite = sel.value;
+      while (sel.options.length > 1) sel.remove(1);
+      Object.keys(SITE_DATA).sort().forEach(function(s) {
+        var o = document.createElement('option'); o.value = s; o.textContent = s; sel.appendChild(o);
+      });
+      sel.value = (SITE_DATA[prevSite] ? prevSite : '');
+      // v10: the loader has done its job — collapse it to a chip in the app bar
+      // and bring up the dashboard shell.
+      var shortName = file.name.replace(/\.xlsx?$/i, '');
+      if (shortName.length > 42) shortName = shortName.slice(0, 40) + '...';
+      document.getElementById('dataChipText').textContent = shortName + '  \u00b7  ' + siteCount + ' sites';
+      document.getElementById('dataChip').className = 'data-chip visible';
+      document.getElementById('helpDataNote').textContent =
+        file.name + ' \u2014 ' + siteCount + ' sites, ' + (rows.length - 1).toLocaleString() + ' rows.';
+      document.getElementById('emptyShell').style.display = 'none';
+      document.getElementById('appShell').className = 'app-shell visible';
+      document.getElementById('tabBar').className = 'tab-bar visible';
+      document.getElementById('siteSelectCard').style.display = 'flex';
+      renderFilterBar();
+      switchTab('overview');
+      renderOverview();
+      renderPopulation();
+      renderPipeline();
+      renderDemand();
+      if (sel.value) renderSite();
+      else document.getElementById('dashboard').innerHTML = '<div class="empty-state"><p>Select a site above to view technician compliance data</p></div>';
+    } catch(err) { showLoadError(dz, err); }
+  }).catch(function(err) { showLoadError(dz, err); });
+}
+
+function showLoadError(dz, err) {
+  dz.innerHTML = '<span class="dz-icon">!</span>' + esc(err.message) +
+    '<br><span style="font-size:.78rem;opacity:.7">Click to try again</span>';
+  console.error(err);
+}
+
+// ─── v8: passive delegate filter ─────────────────────────────────────────────
+// The meeting asked for passive delegates to be filtered out (Greg's flag marks
+// leavers who were never properly removed from GTLS). Column F carries it. The
+// 14 Sep 2026 export is 100% 'Active', so on that file this filter is a no-op —
+// the Overview says so explicitly rather than implying it did something.
+var PASSIVE_EXCLUDED = 0;
+var PERSON_STATUS_SEEN = {};
+
+function parseExcelRows(rows) {
+  // Column indices (0-based) in the PDP Course Data export:
+  //   0 Outlet no        1 Outlet name     2 Learningform      3 Course no
+  //   4 Course name      5 Person status   6 Last name         7 First name
+  //   8 Username         9 Primary job    10 Start date       11 Completed on
+  //  12 Facility name   13 Registration status
+  var data = {};
+  var personIdx = {};
+  var passiveKeys = {};
+  PASSIVE_EXCLUDED = 0;
+  PERSON_STATUS_SEEN = {};
+  for (var i = 1; i < rows.length; i++) {
+    var r = rows[i];
+    var outlet = String(r[1] || '').trim();
+    if (!outlet) continue;
+    var learnForm = String(r[2]  || '').trim();
+    var courseNo  = String(r[3]  || '').trim();
+    var pStatus   = String(r[5]  || '').trim();
+    var lastName  = String(r[6]  || '').trim();
+    var firstName = String(r[7]  || '').trim();
+    var username  = String(r[8]  || '').trim();
+    var job       = String(r[9]  || '').trim();
+    var facility  = String(r[12] || '').trim();
+    var regStatus = String(r[13] || '').trim();
+    var pKey = outlet + '||' + (username || (lastName + ',' + firstName));
+
+    // Passive delegates are dropped entirely. A blank column means an older
+    // export with no status at all — filter nothing rather than filter everything.
+    if (pStatus) {
+      PERSON_STATUS_SEEN[pStatus] = (PERSON_STATUS_SEEN[pStatus] || 0) + 1;
+      if (pStatus !== 'Active') { passiveKeys[pKey] = 1; continue; }
+    }
+
+    var isTech = TECH_JOBS_SET.has(job);
+    if (!data[outlet]) data[outlet] = [];
+    if (personIdx[pKey] === undefined) {
+      personIdx[pKey] = data[outlet].length;
+      data[outlet].push({
+        name: (firstName + ' ' + lastName).trim(), job: job, is_tech: isTech,
+        personStatus: pStatus, quals: [], qualDates: {}, qual_since: null
+      });
+    }
+    var person = data[outlet][personIdx[pKey]];
+
+    if (courseNo) {
+      // v8: pathway progress — programme enrolment and the face-to-face courses,
+      // tracked per brand so a Car technician is never ticked off by a Van course.
+      var hit = COURSE_LOOKUP[courseBase(courseNo)];
+      if (hit) {
+        var brand = courseBrand(courseNo);
+        if (brand) {
+          var startISO = toISODate(r[10]);
+          var st = rowState(learnForm, regStatus, startISO);
+          if (st !== 'none') {
+            var rec = pwEnsure(person, hit.pathway);
+            if (brand === 'BOTH') {
+              pwSet(rec.PC, hit.kind, hit.idx, st, startISO, facility);
+              pwSet(rec.VN, hit.kind, hit.idx, st, startISO, facility);
+            } else {
+              pwSet(rec[brand], hit.kind, hit.idx, st, startISO, facility);
+            }
+          }
+        }
+      }
+      // Held qualifications still come from the award codes (MBPCQMT etc.), which
+      // are a superset of the programme codes — 1,978 MT award holders vs 484 on
+      // T2112Q in the Sep 2026 data, with every T2112Q holder inside the award set.
+      if (regStatus === 'Passed') {
+        var q = getQual(courseNo);
+        if (q) {
+          if (person.quals.indexOf(q) < 0) person.quals.push(q);
+          var d = toISODate(r[11]);
+          if (d && (!person.qualDates[q] || d > person.qualDates[q])) person.qualDates[q] = d;
+        }
+      }
+    }
+  }
+  PASSIVE_EXCLUDED = Object.keys(passiveKeys).length;
+  // Resolve qual_since for each person
+  for (var site in data) {
+    data[site].forEach(function(p) {
+      p.qual_since = highestQualDate(p.qualDates);
+      delete p.qualDates;
+    });
+  }
+  return data;
+}
+// ─── v8: Pipelines — MT, ST and DT ───────────────────────────────────────────
+// Replaces the v7 ST-only pipeline. Shows every technician working towards a
+// qualification, what they still need, and — the distinction the meeting asked
+// for — whether it is actually BOOKED rather than merely enrolled.
+var pipelinePathway = 'ST';  // 'MT' | 'ST' | 'DT' | 'ALL'
+var pipelineFilter  = 'all'; // 'all' | 'notbooked' | 'booked' | 'none'
+var pipeSortCol     = 'site';
+var pipeSortDir     = 1;     // 1 = ascending, -1 = descending
+
+// Sort value for one pipeline row. Course columns are keyed 'c:<pathway>:<idx>'
+// so the key stays unambiguous in the combined view, and they sort on STATE_RANK,
+// which already orders none < enrolled < awaiting < booked < passed.
+var PIPE_ROLE_RANK = { none: 0, MT: 1, ST: 2, DT: 3 };
+function pipeSortVal(r, col) {
+  if (col.indexOf('c:') === 0) {
+    var parts = col.split(':'), c = r.pws[parts[1]];
+    return c ? STATE_RANK[c.v.c[parseInt(parts[2], 10)]] : -1;
+  }
+  if (col === 'prog')  { var cp = r.pws[pipelinePathway]; return cp ? STATE_RANK[cp.v.prog] : -1; }
+  if (col === 'name')  return r.name.toLowerCase();
+  if (col === 'job')   return (r.job || '').toLowerCase();
+  if (col === 'brand') return r.brand === 'BOTH' ? 2 : r.brand === 'VN' ? 1 : 0;
+  if (col === 'holds') return PIPE_ROLE_RANK[r.role] || 0;
+  return r.site.toLowerCase();
+}
+
+function setPipeSort(col) {
+  if (pipeSortCol === col) pipeSortDir = -pipeSortDir;
+  else { pipeSortCol = col; pipeSortDir = 1; }
+  renderPipeline();
+}
+
+// Same arrow vocabulary as the Overview table: a faint double arrow on every
+// sortable column, replaced by a solid accent arrow on the active one.
+function pipeSortTh(label, key, title, style) {
+  var isActive = pipeSortCol === key;
+  var arrow = isActive ? (pipeSortDir === 1 ? '&#9650;' : '&#9660;') : '&#8693;';
+  var t  = title ? ' title="' + esc(title) + '"' : '';
+  var st = style ? ' style="' + style + '"' : '';
+  return '<th class="sort-th"' + st + t + ' onclick="setPipeSort(\'' + key + '\')">' + label +
+    '<span class="' + (isActive ? 'sort-arrow active' : 'sort-arrow') + '">' + arrow + '</span></th>';
+}
+
+var PIPE_SORT_LABEL = {
+  site: 'site', name: 'name', job: 'job role',
+  brand: 'brand', holds: 'qualification held', prog: 'programme enrolment'
+};
+function pipeSortLabel() {
+  if (pipeSortCol.indexOf('c:') === 0) {
+    var parts = pipeSortCol.split(':');
+    return PATHWAYS[parts[1]].short + ' ' + PATHWAYS[parts[1]].courses[parseInt(parts[2], 10)].code;
+  }
+  return PIPE_SORT_LABEL[pipeSortCol] || 'site';
+}
+
+// Honours the Overview network / car-van filters so the two tabs always agree.
+function pipelineScope() {
+  return Object.keys(SITE_DATA).sort().filter(function(s) {
+    var t = getSiteType(s);
+    if (ovTypeFilter === 'car' && t === 'van') return false;
+    if (ovTypeFilter === 'van' && t === 'car') return false;
+    if (ovNetworkFilter === 'mb'      && !MB_OFFICIAL_SET.has(s)) return false;
+    if (ovNetworkFilter === 'partner' && !MB_PARTNER_SET.has(s))  return false;
+    return true;
+  });
+}
+
+// Who belongs in each pathway. A technician counts in exactly one role
+// (DT > ST > MT > none), so the candidates for a level are the people sitting at
+// the level below it.
+function levelBelow(role, pw) {
+  if (pw === 'MT') return role === 'none';
+  if (pw === 'ST') return role === 'MT' || role === 'none';
+  if (pw === 'DT') return role === 'ST';
+  return false;
+}
+
+// Ranks candidates by how close they are to finishing, so that when a site needs
+// N more people at a level, the N shown are the ones actually worth booking.
+// For ST, an existing MT outranks an unqualified technician — they are one
+// programme away rather than two.
+function progressScore(c) {
+  var s = c.done * 10 + c.booked * 3 + (c.v.prog !== 'none' ? 1 : 0);
+  if (c.pw === 'ST' && c.role === 'MT') s += 100;
+  return s;
+}
+
+// A technician appears in a pathway if they have engagement on it, or if their
+// site needs them to close a gap. Without the gap test the DT pipeline would
+// simply list every System Technician in the network, which is noise: the
+// standard asks for 1 DT per 15 technicians, not for everyone to become one.
+function collectPipeline(pw, sitesOnly) {
+  var out = [];
+  pipelineScope().forEach(function(site) {
+    if (sitesOnly && !sitesOnly[site]) return;
+    var type = getSiteType(site);
+    var gap = siteGap(siteCompliance(site), pw);
+    var cands = [];
+    SITE_DATA[site].forEach(function(p) {
+      if (!p.is_tech) return;
+      if (hideAppr && p.job === 'Apprentice Technician') return;
+      var role = getPrimaryRole(p.quals);
+      if (!levelBelow(role, pw)) return;
+      var brand = techBrand(p, type);
+      var v = pwView(p, pw, brand);
+      var done = 0, booked = 0, outstanding = 0;
+      v.c.forEach(function(st) {
+        if (st === 'passed') done++;
+        else if (st === 'booked' || st === 'await') booked++;
+        else outstanding++;
+      });
+      cands.push({ site: site, name: p.name, job: p.job, brand: brand, role: role, pw: pw, v: v,
+                   engaged: v.prog !== 'none' || v.c.some(function(st) { return st !== 'none'; }),
+                   done: done, booked: booked, outstanding: outstanding, gap: gap, needed: false });
+    });
+    cands.sort(function(a, b) {
+      var d = progressScore(b) - progressScore(a);
+      return d !== 0 ? d : a.name.localeCompare(b.name);
+    });
+    cands.forEach(function(c, i) {
+      c.needed = i < gap;
+      if (c.engaged || c.needed) out.push(c);
+    });
+  });
+  return out;
+}
+
+function pipeMatchesFilter(c) {
+  // 'cpN' = exactly N of this pathway's courses passed. Shows how far through
+  // the pathway someone actually is, rather than how much of it is in the diary.
+  if (pipelineFilter.indexOf('cp') === 0) return c.done === parseInt(pipelineFilter.slice(2), 10);
+  if (pipelineFilter === 'notbooked') return c.engaged && c.booked === 0 && c.outstanding > 0;
+  if (pipelineFilter === 'booked')    return c.booked > 0;
+  if (pipelineFilter === 'none')      return !c.engaged;
+  if (pipelineFilter === 'needed')    return c.needed;
+  return true;
+}
+
+function pwStateKey() {
+  return '<div class="pw-key" style="margin:12px 0 0">' +
+    '<b style="color:var(--text-3);text-transform:uppercase;font-size:0.72rem;letter-spacing:0.05em">Key:</b>' +
+    '<span class="k">' + pwDot('passed') + ' Passed</span>' +
+    '<span class="k">' + pwDot('booked') + ' Booked (course date set)</span>' +
+    '<span class="k">' + pwDot('await')  + ' Sat, awaiting result</span>' +
+    '<span class="k">' + pwDot('enrol')  + ' Enrolled, not booked</span>' +
+    '<span class="k">' + pwDot('none')   + ' Not enrolled</span>' +
+  '</div>';
+}
+
+function renderPipeline() {
+  var el = document.getElementById('pipelineContent');
+  if (!Object.keys(SITE_DATA).length) {
+    el.innerHTML = '<div class="empty-state" style="padding:80px 20px"><p>No data loaded.</p></div>';
+    return;
+  }
+  var pathways = pipelinePathway === 'ALL' ? PW_ORDER : [pipelinePathway];
+
+  // For the combined view a technician appears once, carrying whichever
+  // pathways they are actually in.
+  var byPerson = {};
+  pathways.forEach(function(pw) {
+    collectPipeline(pw, null).forEach(function(c) {
+      var k = c.site + '||' + c.name;
+      if (!byPerson[k]) byPerson[k] = { site: c.site, name: c.name, job: c.job, brand: c.brand, role: c.role, pws: {} };
+      byPerson[k].pws[pw] = c;
+    });
+  });
+  var people = Object.keys(byPerson).map(function(k) {
+    var r = byPerson[k];
+    r.engaged     = PW_ORDER.some(function(pw) { return r.pws[pw] && r.pws[pw].engaged; });
+    r.needed      = PW_ORDER.some(function(pw) { return r.pws[pw] && r.pws[pw].needed; });
+    r.done        = PW_ORDER.reduce(function(a, pw) { return a + (r.pws[pw] ? r.pws[pw].done : 0); }, 0);
+    r.booked      = PW_ORDER.reduce(function(a, pw) { return a + (r.pws[pw] ? r.pws[pw].booked : 0); }, 0);
+    r.outstanding = PW_ORDER.reduce(function(a, pw) { return a + (r.pws[pw] ? r.pws[pw].outstanding : 0); }, 0);
+    return r;
+  });
+
+  var nAll       = people.length;
+  var nNotBooked = people.filter(function(c) { return c.engaged && c.booked === 0 && c.outstanding > 0; }).length;
+  var nBooked    = people.filter(function(c) { return c.booked > 0; }).length;
+  var nNone      = people.filter(function(c) { return !c.engaged; }).length;
+  var nNeeded    = people.filter(function(c) { return c.needed; }).length;
+
+  // One button per exact count of courses PASSED, 1 .. (courses - 1): MT has two
+  // courses so gets "1 course completed"; ST has three so gets "1" and "2".
+  // Skipped in the combined view, where a count across three pathways says little.
+  var doneCountBtns = [];
+  if (pipelinePathway !== 'ALL') {
+    var nCourses = PATHWAYS[pipelinePathway].courses.length;
+    for (var ci = 1; ci < nCourses; ci++) {
+      (function(k) {
+        doneCountBtns.push({
+          key: 'cp' + k, k: k,
+          n: people.filter(function(c) { return c.done === k; }).length
+        });
+      })(ci);
+    }
+  }
+
+  var shown = people.filter(pipeMatchesFilter);
+  shown.sort(function(a, b) {
+    var av = pipeSortVal(a, pipeSortCol), bv = pipeSortVal(b, pipeSortCol);
+    if (av < bv) return -1 * pipeSortDir;
+    if (av > bv) return  1 * pipeSortDir;
+    // Site then name is the tie-break, and the default order.
+    var s = a.site.localeCompare(b.site);
+    return s !== 0 ? s : a.name.localeCompare(b.name);
+  });
+
+  var pathBtn = function(val, label) {
+    return '<button class="pathway-btn' + (pipelinePathway === val ? ' active' : '') + '"' +
+      ' onclick="setPipelinePathway(\'' + val + '\')">' + label + '</button>';
+  };
+  var filterBtn = function(val, label) {
+    return '<button class="fb' + (pipelineFilter === val ? ' active' : '') + '" onclick="setPipelineFilter(\'' + val + '\')">' + label + '</button>';
+  };
+
+  // Column headers: one group of course dots per pathway in view
+  var headCourses = pathways.map(function(pw) {
+    return PATHWAYS[pw].courses.map(function(c, i) {
+      var st = (pipelinePathway === 'ALL' && i === 0)
+        ? 'text-align:center;border-left:2px solid var(--border-strong)'
+        : 'text-align:center';
+      return pipeSortTh(c.code, 'c:' + pw + ':' + i, PATHWAYS[pw].short + ' — ' + c.name, st);
+    }).join('');
+  }).join('');
+
+  var tableRows = shown.map(function(r) {
+    var cells = pathways.map(function(pw) {
+      var c = r.pws[pw];
+      return PATHWAYS[pw].courses.map(function(course, i) {
+        var bd = (pipelinePathway === 'ALL' && i === 0) ? ';border-left:2px solid var(--border-strong)' : '';
+        if (!c) return '<td style="text-align:center' + bd + '"><span style="color:var(--border)">&middot;</span></td>';
+        return '<td style="text-align:center' + bd + '">' + pwDot(c.v.c[i], course.code + ' ' + course.name, c.v.d[i]) + '</td>';
+      }).join('');
+    }).join('');
+    var progCell = pipelinePathway === 'ALL'
+      ? ''
+      : '<td style="text-align:center">' + pwDot(r.pws[pipelinePathway] ? r.pws[pipelinePathway].v.prog : 'none', PATHWAYS[pipelinePathway].programme + ' programme enrolment') + '</td>';
+    var holds = r.role === 'none' ? '<span style="color:var(--text-3)">&mdash;</span>' : '<span class="qtag tag-' + r.role.toLowerCase() + '">' + r.role + '</span>';
+    var flag = r.needed ? ' <span title="Needed to bring this site up to the standard" style="color:var(--warn)">&#127919;</span>' : '';
+    return '<tr>' +
+      '<td><span class="site-link" onclick="goToSite(\'' + esc(r.site).replace(/'/g, "\\'") + '\')">&#128205; ' + esc(r.site) + '</span></td>' +
+      '<td>' + esc(r.name) + flag + '</td>' +
+      '<td>' + esc(r.job) + '</td>' +
+      '<td style="text-align:center">' + (r.brand === 'BOTH' ? 'Car &amp; Van' : r.brand === 'VN' ? 'Van' : 'Car') + '</td>' +
+      '<td style="text-align:center">' + holds + '</td>' +
+      progCell +
+      cells +
+    '</tr>';
+  }).join('');
+
+  var title = pipelinePathway === 'ALL'
+    ? 'All Pathways — MT, ST and DT'
+    : PATHWAYS[pipelinePathway].label + ' Pathway (' + PATHWAYS[pipelinePathway].programme + ')';
+
+  el.innerHTML =
+    scopeBar(false) +
+    '<div class="pipe-summary">' +
+      pipeStat('all',       't-all',    nAll,       'In pipeline') +
+      pipeStat('notbooked', 't-warn',   nNotBooked, 'Enrolled, not booked') +
+      pipeStat('booked',    't-info',   nBooked,    'Has a booking') +
+      pipeStat('none',      't-fail',   nNone,      'Not started') +
+      pipeStat('needed',    't-accent', nNeeded,    'Needed to clear standard') +
+    '</div>' +
+    '<div class="ov-section">' +
+      '<h2>' + title + infoBtn('infoPipe') + '</h2>' +
+      infoPanel('infoPipe',
+        '<strong>Booked</strong> means an instructor-led or virtual classroom course with a date. ' +
+        'An e-Training enrolment on its own is <strong>not</strong> booked &mdash; a delegate can sit on one indefinitely. ' +
+        'A technician appears in a pathway if they have engagement on it, or if their site needs them to close a gap.' +
+        pwStateKey()) +
+      '<div class="pathway-toggle">' +
+        pathBtn('MT', 'MT Pathway') + pathBtn('ST', 'ST Pathway') + pathBtn('DT', 'DT Pathway') + pathBtn('ALL', 'All Three') +
+      '</div>' +
+      '<div class="pipe-filter-row">' +
+        filterBtn('all', 'All (' + nAll + ')') +
+        doneCountBtns.map(function(b) {
+          return filterBtn(b.key, b.k + ' course' + (b.k === 1 ? '' : 's') + ' completed (' + b.n + ')');
+        }).join('') +
+        filterBtn('booked',    'Any booking (' + nBooked + ')') +
+        filterBtn('none',      'Not started (' + nNone + ')') +
+        filterBtn('needed',    '&#127919; Needed to clear the standard (' + nNeeded + ')') +
+      '</div>' +
+      (shown.length === 0
+        ? '<p style="padding:20px;color:var(--text-3);font-style:italic">No technicians match this filter.</p>'
+        : '<div class="pipe-table-wrap"><table class="pipe-table">' +
+            '<thead><tr>' +
+              pipeSortTh('Site','site') +
+              pipeSortTh('Name','name') +
+              pipeSortTh('Job Role','job') +
+              pipeSortTh('Brand','brand', null, 'text-align:center') +
+              pipeSortTh('Holds','holds','Highest qualification currently held','text-align:center') +
+              (pipelinePathway === 'ALL' ? '' : pipeSortTh('Programme','prog','Programme enrolment','text-align:center')) +
+              headCourses +
+            '</tr></thead>' +
+            '<tbody>' + tableRows + '</tbody>' +
+          '</table></div>') +
+      '<p style="font-size:0.78rem;color:var(--text-3);margin-top:10px">Showing ' + shown.length + ' of ' + nAll +
+        ' technicians, sorted by ' + pipeSortLabel() + (pipeSortDir === 1 ? ' (ascending)' : ' (descending)') + '.</p>' +
+    '</div>';
+}
+
+function pipeStat(key, tone, value, label) {
+  return '<div class="pipe-stat ' + tone + (pipelineFilter === key ? ' sel' : '') + '"' +
+    ' onclick="setPipelineFilter(\'' + key + '\')">' +
+    '<div class="ps-val">' + value + '</div><div class="ps-lbl">' + label + '</div></div>';
+}
+
+function setPipelineFilter(f)  { pipelineFilter = f; renderPipeline(); }
+function setPipelinePathway(p) {
+  pipelinePathway = p;
+  // 'cp2' means nothing on a two-course pathway, and nothing at all in the
+  // combined view — fall back to All rather than showing an empty table.
+  if (pipelineFilter.indexOf('cp') === 0) {
+    var k = parseInt(pipelineFilter.slice(2), 10);
+    if (p === 'ALL' || k >= PATHWAYS[p].courses.length) pipelineFilter = 'all';
+  }
+  // A course or programme sort can point at a column the new view does not show.
+  if (pipeSortCol === 'prog' && p === 'ALL') { pipeSortCol = 'site'; pipeSortDir = 1; }
+  if (pipeSortCol.indexOf('c:') === 0 && p !== 'ALL' && pipeSortCol.indexOf('c:' + p + ':') !== 0) {
+    pipeSortCol = 'site'; pipeSortDir = 1;
+  }
+  renderPipeline();
+}
+
+// ─── v8: Course Demand ───────────────────────────────────────────────────────
+// Lee's fourth question: "How many courses do we need to schedule to allow all
+// the non-compliant sites to meet the standards?" Outstanding = technicians who
+// need the course and have neither passed it nor got it booked.
+var demandClassSize = 12;
+var demandScope     = 'noncomp'; // 'noncomp' | 'all'
+var LEE_CODES = { T2115F: 1, T2116F: 1, T0004F: 1, T2121F: 1, T2122F: 1 };
+
+function setDemandClassSize(v) {
+  var n = parseInt(v, 10);
+  demandClassSize = (isNaN(n) || n < 1) ? 1 : n;
+  renderDemand();
+}
+function setDemandScope(s) { demandScope = s; demandDrill = null; renderDemand(); }
+
+// v8: Course Demand drill-down — clicking any figure lists the sites and
+// delegates behind it, inline under that course row.
+var DEMAND_DATA = {};   // pathway -> { needed: [...], all: [...] } from the last render
+var demandDrill = null; // { pw, idx, kind }
+var DRILL_KIND_LABEL = {
+  gapNeed:   'still need this course',
+  gapBooked: 'already booked on this course',
+  gapOut:    'need this course and have not got it booked',
+  allOut:    'need this course and have not got it booked \u2014 full pathway'
+};
+
+function toggleDemandDrill(pw, idx, kind) {
+  if (demandDrill && demandDrill.pw === pw && demandDrill.idx === idx && demandDrill.kind === kind) {
+    demandDrill = null;
+  } else {
+    demandDrill = { pw: pw, idx: idx, kind: kind };
+  }
+  renderDemand();
+}
+
+function demandCell(pw, idx, kind, value, style) {
+  var st = 'text-align:center;' + (style || '');
+  if (!value) return '<td style="' + st + '">' + value + '</td>';
+  var active = demandDrill && demandDrill.pw === pw && demandDrill.idx === idx && demandDrill.kind === kind;
+  return '<td class="demand-clickable' + (active ? ' demand-cell-active' : '') + '" style="' + st + '"' +
+    ' onclick="toggleDemandDrill(\'' + pw + '\',' + idx + ',\'' + kind + '\')"' +
+    ' title="Click to list the sites and delegates">' + value + '</td>';
+}
+
+function drillMatches(state, kind) {
+  if (kind === 'gapNeed')   return state !== 'passed';
+  if (kind === 'gapBooked') return state === 'booked' || state === 'await';
+  return state !== 'passed' && state !== 'booked' && state !== 'await'; // outstanding
+}
+
+// Shared by the on-screen panel and the PDF export, so the two can never disagree.
+function drillData(pw, idx, kind) {
+  var store = DEMAND_DATA[pw];
+  if (!store) return { list: [], bySite: {}, siteNames: [] };
+  var list = (kind === 'allOut' ? store.all : store.needed).filter(function(x) {
+    return drillMatches(x.v.c[idx], kind);
+  });
+  var bySite = {};
+  list.forEach(function(x) { (bySite[x.site] = bySite[x.site] || []).push(x); });
+  Object.keys(bySite).forEach(function(s) {
+    bySite[s].sort(function(a, b) { return a.name.localeCompare(b.name); });
+  });
+  return { list: list, bySite: bySite, siteNames: Object.keys(bySite).sort() };
+}
+
+// Plain-text description of the current scope, for the PDF header.
+function scopeSentence() {
+  var net  = ovNetworkFilter === 'mb' ? 'MB Retailers only'
+           : ovNetworkFilter === 'partner' ? 'Partners only' : 'All sites';
+  var type = ovTypeFilter === 'car' ? 'Car only'
+           : ovTypeFilter === 'van' ? 'Van only' : 'Car and Van';
+  var sc   = demandScope === 'noncomp' ? 'Non-compliant sites only' : 'All sites in scope';
+  return net + '  ·  ' + type + '  ·  ' + sc +
+         '  ·  ' + (hideAppr ? 'Apprentices excluded' : 'Apprentices included');
+}
+
+// ── Excel export ─────────────────────────────────────────────────────────────
+// Uses SheetJS, which is already loaded to read the PDP file — so the delegate
+// list costs no extra dependency, and lands as a sheet people can sort, filter
+// and paste straight into a scheduling plan.
+var KIND_SLUG = { gapNeed: 'need', gapBooked: 'booked', gapOut: 'outstanding', allOut: 'outstanding-full-pathway' };
+
+function drillStatus(msg, isError) {
+  var el = document.getElementById('drillPdfStatus');
+  if (el) {
+    el.textContent = msg || '';
+    el.style.color = isError ? 'var(--fail)' : 'var(--text-3)';
+  }
+}
+
+function exportDrillXlsx(pw, idx, kind) {
+  var course = PATHWAYS[pw].courses[idx];
+  var d = drillData(pw, idx, kind);
+  if (!d.list.length) { drillStatus('Nothing to export.', true); return; }
+  if (typeof XLSX === 'undefined') {
+    drillStatus('Spreadsheet library not loaded — check your connection and refresh.', true);
+    return;
+  }
+  try {
+    var today = new Date().toISOString().slice(0, 10);
+
+    // Sheet 1: one row per delegate, site order, ready to filter
+    var rows = [['Site', 'Delegate', 'Job Role', 'Status', 'Course Date', 'Venue']];
+    d.siteNames.forEach(function(site) {
+      d.bySite[site].forEach(function(x) {
+        var info = x.v.d[idx];
+        rows.push([
+          site, x.name, x.job,
+          (PW_STATE_META[x.v.c[idx]] || PW_STATE_META.none).label,
+          info && info.date ? info.date : '',
+          info && info.fac  ? info.fac  : ''
+        ]);
+      });
+    });
+    var ws = XLSX.utils.aoa_to_sheet(rows);
+    ws['!cols'] = [{ wch: 40 }, { wch: 24 }, { wch: 30 }, { wch: 26 }, { wch: 13 }, { wch: 34 }];
+    // Autofilter on, so the list can be cut by site or status straight away.
+    // (Freeze panes are not written by the SheetJS community build, so the
+    // header row does not stay pinned — filter dropdowns still work.)
+    ws['!autofilter'] = { ref: XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: rows.length - 1, c: 5 } }) };
+
+    // Sheet 2: what this list is and the scope it came from, so a file sitting
+    // in someone's inbox next month still explains itself
+    var about = [
+      ['Course',               course.code],
+      ['Title',                course.name],
+      ['Pathway',              PATHWAYS[pw].label],
+      ['Course length (days)', course.days],
+      ['This list shows',      'Delegates who ' + DRILL_KIND_LABEL[kind]],
+      ['Delegates',            d.list.length],
+      ['Sites',                d.siteNames.length],
+      ['Scope',                scopeSentence()],
+      ['Generated',            today],
+      ['Source',               'MB Technician Compliance Tool v11']
+    ];
+    var wsAbout = XLSX.utils.aoa_to_sheet(about);
+    wsAbout['!cols'] = [{ wch: 22 }, { wch: 64 }];
+
+    var wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Delegates');
+    XLSX.utils.book_append_sheet(wb, wsAbout, 'About');
+    XLSX.writeFile(wb, course.code + '-' + (KIND_SLUG[kind] || kind) + '-' + today + '.xlsx');
+    drillStatus('', false);
+  } catch (e) {
+    drillStatus('Export failed: ' + e.message, true);
+    console.error(e);
+  }
+}
+
+function demandDrillRow(pw, idx, course, colspan) {
+  var d = demandDrill;
+  if (!d || d.pw !== pw || d.idx !== idx) return '';
+  if (!DEMAND_DATA[pw]) return '';
+  var dd = drillData(pw, idx, d.kind);
+  var list = dd.list, bySite = dd.bySite, siteNames = dd.siteNames;
+
+  var body = siteNames.length === 0
+    ? '<p class="drill-empty">No delegates match.</p>'
+    : siteNames.map(function(site) {
+        var people = bySite[site];
+        return '<div class="drill-site">' +
+          '<h4 onclick="goToSite(\'' + esc(site).replace(/'/g, "\\'") + '\')">&#128205; ' + esc(site) +
+          ' <span class="dn">(' + people.length + ')</span></h4>' +
+          '<div class="drill-people">' + people.map(function(x) {
+            var info = x.v.d[idx];
+            return '<div class="drill-person">' +
+              pwDot(x.v.c[idx], course.code + ' ' + course.name, info) +
+              '<span class="dp-name">' + esc(x.name) + '</span>' +
+              '<span class="dp-job">' + esc(x.job) + '</span>' +
+              (info && info.date ? '<span class="dp-when">' + esc(info.date) + (info.fac ? ' \u00b7 ' + esc(info.fac) : '') + '</span>' : '') +
+            '</div>';
+          }).join('') + '</div>' +
+        '</div>';
+      }).join('');
+
+  return '<tr class="drill-row"><td colspan="' + colspan + '"><div class="drill-wrap">' +
+    '<div class="drill-head">' +
+      '<span>' + course.code + ' &mdash; ' + esc(course.name) + '</span>' +
+      '<span style="font-weight:400;color:var(--text-2)">' + list.length + ' delegate' + (list.length === 1 ? '' : 's') +
+        ' across ' + siteNames.length + ' site' + (siteNames.length === 1 ? '' : 's') + ' ' + DRILL_KIND_LABEL[d.kind] + '</span>' +
+      (list.length
+        ? '<button class="drill-pdf" onclick="exportDrillXlsx(\'' + pw + '\',' + idx + ',\'' + d.kind + '\')"' +
+          ' title="Download this list as an Excel file">Download Excel</button>'
+        : '') +
+      '<span id="drillPdfStatus" class="drill-status"></span>' +
+      '<span class="drill-close" onclick="toggleDemandDrill(\'' + pw + '\',' + idx + ',\'' + d.kind + '\')">&times; close</span>' +
+    '</div>' +
+    '<div class="drill-sub">Click a site name to jump to its By Site view.</div>' +
+    body +
+  '</div></td></tr>';
+}
+
+function renderDemand() {
+  var el = document.getElementById('demandContent');
+  if (!Object.keys(SITE_DATA).length) {
+    el.innerHTML = '<div class="empty-state" style="padding:80px 20px"><p>No data loaded.</p></div>';
+    return;
+  }
+  var sitesOnly = null, scopeSites = pipelineScope();
+  if (demandScope === 'noncomp') {
+    sitesOnly = {};
+    scopeSites.forEach(function(s) {
+      var r = siteCompliance(s);
+      if (r && !(r.passOverall && r.passST && r.passMT && r.passDT1 && r.passDTScale)) sitesOnly[s] = 1;
+    });
+  }
+  var siteCount = sitesOnly ? Object.keys(sitesOnly).length : scopeSites.length;
+
+  var groups = PW_ORDER.map(function(pw) {
+    var cands  = collectPipeline(pw, sitesOnly);
+    var needed = cands.filter(function(x) { return x.needed; });
+    var rows = PATHWAYS[pw].courses.map(function(c, i) {
+      function tally(list) {
+        var need = 0, bk = 0, out = 0;
+        list.forEach(function(x) {
+          var st = x.v.c[i];
+          if (st === 'passed') return;
+          need++;
+          if (st === 'booked' || st === 'await') bk++; else out++;
+        });
+        return { need: need, booked: bk, out: out };
+      }
+      var g = tally(needed), a = tally(cands);
+      return { code: c.code, name: c.name, days: c.days,
+               gapNeed: g.need, gapBooked: g.booked, gapOut: g.out,
+               gapSched: Math.ceil(g.out / demandClassSize),
+               allOut: a.out, allSched: Math.ceil(a.out / demandClassSize) };
+    });
+    DEMAND_DATA[pw] = { needed: needed, all: cands };
+    return { pw: pw, label: PATHWAYS[pw].label, people: cands.length, needed: needed.length, rows: rows };
+  });
+
+  var gapCourses = 0, gapPlaces = 0, allCourses = 0, allPlaces = 0;
+  groups.forEach(function(g) {
+    g.rows.forEach(function(r) {
+      gapCourses += r.gapSched; gapPlaces += r.gapOut;
+      allCourses += r.allSched; allPlaces += r.allOut;
+    });
+  });
+
+  var scopeBtn = function(val, label) {
+    return '<button class="pathway-btn' + (demandScope === val ? ' active' : '') + '" onclick="setDemandScope(\'' + val + '\')">' + label + '</button>';
+  };
+
+  var groupHtml = groups.map(function(g) {
+    var rows = g.rows.map(function(r, ri) {
+      var star = LEE_CODES[r.code] ? ' <span title="Named in Lee\'s brief of 1 Aug 2026" style="color:var(--warn)">&#9733;</span>' : '';
+      var course = PATHWAYS[g.pw].courses[ri];
+      return '<tr>' +
+        '<td><strong>' + r.code + '</strong>' + star + '</td>' +
+        '<td>' + esc(r.name) + '</td>' +
+        '<td style="text-align:center">' + r.days + '</td>' +
+        demandCell(g.pw, ri, 'gapNeed',   r.gapNeed) +
+        demandCell(g.pw, ri, 'gapBooked', r.gapBooked, 'color:var(--info);font-weight:700') +
+        demandCell(g.pw, ri, 'gapOut',    r.gapOut,    'color:' + (r.gapOut ? 'var(--fail)' : 'var(--pass)') + ';font-weight:700') +
+        '<td style="text-align:center;border-right:2px solid var(--border-strong)"><span class="demand-big">' + r.gapSched + '</span></td>' +
+        demandCell(g.pw, ri, 'allOut',    r.allOut,    'color:var(--text-3)') +
+        '<td style="text-align:center;color:var(--text-2);font-weight:700">' + r.allSched + '</td>' +
+      '</tr>' +
+      demandDrillRow(g.pw, ri, course, 9);
+    }).join('');
+    var subGap = g.rows.reduce(function(a, r) { return a + r.gapSched; }, 0);
+    var subAll = g.rows.reduce(function(a, r) { return a + r.allSched; }, 0);
+    return '<div class="ov-section">' +
+      '<h2>' + esc(g.label) + '</h2>' +
+      '<p style="font-size:0.82rem;color:var(--text-3);margin-bottom:12px">' +
+        '<strong>' + g.needed + '</strong> technician' + (g.needed === 1 ? '' : 's') + ' needed to clear the standard' +
+        ' &nbsp;&middot;&nbsp; ' + g.people + ' in this pathway altogether' +
+      '</p>' +
+      '<div class="pipe-table-wrap"><table class="pipe-table">' +
+        '<thead>' +
+          '<tr>' +
+            '<th colspan="3"></th>' +
+            '<th colspan="4" style="text-align:center;border-bottom:2px solid var(--accent);color:var(--text)">To clear the standard</th>' +
+            '<th colspan="2" style="text-align:center;border-bottom:2px solid var(--border-strong)">Full pathway</th>' +
+          '</tr>' +
+          '<tr>' +
+            '<th>Course</th><th>Title</th>' +
+            '<th style="text-align:center" title="Course length in days">Days</th>' +
+            '<th style="text-align:center" title="Technicians needed to close the gap who still need this course">Need it</th>' +
+            '<th style="text-align:center" title="Of those, already booked on a dated course">Booked</th>' +
+            '<th style="text-align:center" title="Need it and not booked — the real demand">Outstanding</th>' +
+            '<th style="text-align:center;border-right:2px solid var(--border-strong)" title="Outstanding divided by class size, rounded up">Schedule</th>' +
+            '<th style="text-align:center" title="Everyone in this pathway who needs the course and is not booked">Outstanding</th>' +
+            '<th style="text-align:center" title="If the whole pathway were put through">Schedule</th>' +
+          '</tr>' +
+        '</thead>' +
+        '<tbody>' + rows + '</tbody>' +
+        '<tfoot><tr>' +
+          '<td colspan="6" style="text-align:right;font-weight:700;padding:10px 12px">' + esc(g.label) + ' subtotal</td>' +
+          '<td style="text-align:center;border-right:2px solid var(--border-strong)"><span class="demand-big">' + subGap + '</span></td>' +
+          '<td></td><td style="text-align:center;color:var(--text-2);font-weight:700">' + subAll + '</td>' +
+        '</tr></tfoot>' +
+      '</table></div>' +
+    '</div>';
+  }).join('');
+
+  el.innerHTML =
+    scopeBar(false) +
+    '<div class="ov-hero neutral">' +
+      '<div class="ov-hero-num">' + gapCourses + '</div>' +
+      '<div class="ov-hero-txt">' +
+        '<h2>course' + (gapCourses === 1 ? '' : 's') + ' to schedule to clear the standard</h2>' +
+        '<p>' + gapPlaces + ' outstanding places across ' + siteCount + ' site' + (siteCount === 1 ? '' : 's') +
+        ' at ' + demandClassSize + ' per course</p>' +
+      '</div>' +
+      '<div class="ov-hero-side">' +
+        '<div><div class="hs-val">' + allCourses + '</div><div class="hs-lbl">if the full pathway ran</div></div>' +
+        '<div><div class="hs-val">' + allPlaces + '</div><div class="hs-lbl">places in total</div></div>' +
+      '</div>' +
+    '</div>' +
+    '<div class="demand-note">' +
+      '<span><strong>Class size</strong></span>' +
+      '<input type="number" min="1" max="30" value="' + demandClassSize + '" onchange="setDemandClassSize(this.value)" onkeyup="if(event.key===\'Enter\')setDemandClassSize(this.value)">' +
+      '<span style="color:var(--warn)">&#9888;&#65039; Placeholder &mdash; confirm the real MB class size and every figure here updates.</span>' +
+      '<span style="margin-left:auto">' + scopeBtn('noncomp', 'Non-compliant sites only') + ' ' + scopeBtn('all', 'All sites in scope') + '</span>' +
+    '</div>' +
+    '<div style="margin-bottom:16px">' +
+      '<span style="font-size:0.83rem;color:var(--text-3)">Click any figure to list the sites and delegates behind it.</span>' +
+      infoBtn('infoDemand') +
+      infoPanel('infoDemand',
+        '<strong>To clear the standard</strong> counts only the technicians each site actually needs to qualify ' +
+        '&mdash; enough to reach 80% qualified, 60% ST and the scaled DT requirement &mdash; taking those closest to finishing first. ' +
+        '<strong>Full pathway</strong> is everyone in the pipeline, for the longer view. ' +
+        '<strong>Outstanding</strong> means they need the course and have not got it booked. ' +
+        'Courses marked &#9733; are the five named in Lee\'s brief of 1 Aug 2026.') +
+    '</div>' +
+    groupHtml;
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
+var QUAL_SHORT = {PC_MT:'PC MT', PC_ST:'PC ST', PC_DT:'PC DT', Van_MT:'Van MT', Van_ST:'Van ST', Van_DT:'Van DT'};
+var QUAL_CODE  = {PC_MT:'MBPCQMT', PC_ST:'MBPCQST', PC_DT:'MBPCQDT', Van_MT:'MBVQMT', Van_ST:'MBVQST', Van_DT:'MBVQDT'};
+var QUAL_CLS   = {PC_MT:'tag-mt', PC_ST:'tag-st', PC_DT:'tag-dt', Van_MT:'tag-mt', Van_ST:'tag-st', Van_DT:'tag-dt'};
+
+function setApprentices(mode) {
+  hideAppr = (mode === 'exclude');
+  renderFilterBar(); renderOverview(); renderPopulation(); renderSite(); renderPipeline(); renderDemand();
+}
+
+function toggleAppr(cb) { hideAppr = cb.checked; renderFilterBar(); renderOverview(); renderPopulation(); renderSite(); renderPipeline(); renderDemand(); }
+
+// Each technician counts in exactly ONE role: DT > ST > MT > none.
+// A tech holding both DT and ST quals is counted only as DT.
+// Surplus DTs (beyond the scaled DT requirement) are reallocated to count toward ST %.
+function getPrimaryRole(quals) {
+  if (quals.some(function(q) { return q.endsWith('_DT'); })) return 'DT';
+  if (quals.some(function(q) { return q.endsWith('_ST'); })) return 'ST';
+  if (quals.some(function(q) { return q.endsWith('_MT'); })) return 'MT';
+  return 'none';
+}
+
+// v8: the next qualification a technician is working towards
+function nextPathway(role) {
+  return role === 'none' ? 'MT' : role === 'MT' ? 'ST' : role === 'ST' ? 'DT' : null;
+}
+
+function gc(p) { return p >= 80 ? 'var(--pass)' : p >= 60 ? 'var(--warn)' : 'var(--fail)'; }
+function sc(p) { return p >= 80 ? 'green' : p >= 60 ? 'amber' : 'red'; }
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function bn(n) { return n === 0 ? '<span class="qual-count-zero">0</span>' : '<strong>' + n + '</strong>'; }
+
+function reqRow(pass, title, detail) {
+  var icon = pass === true    ? '&#9989;'
+           : pass === false   ? '&#10060;'
+           : pass === 'waived'? '&#8505;&#65039;'
+           : '&#9888;&#65039;';
+  var cls  = pass === true    ? 'pass'
+           : pass === false   ? 'fail'
+           : pass === 'waived'? ''
+           : 'warn';
+  var extraStyle = pass === 'waived' ? ' style="color:var(--info)"' : '';
+  return '<div class="req-item"><span class="req-icon">' + icon + '</span>' +
+    '<div class="req-text ' + cls + '"' + extraStyle + '><strong>' + title + '</strong><span style="opacity:.8">' + detail + '</span></div></div>';
+}
+
+function brandCard(key, label, badgeCls, pfx) {
+  var b = getBrands(currentTechs)[key];
+  return '<div class="brand-card"><h3><span class="brand-badge ' + badgeCls + '">' + label + '</span></h3>' +
+    '<div class="qual-row"><span>Maintenance Tech (MB' + pfx + 'QMT)</span><span class="qual-count">' + bn(b.mt) + '</span></div>' +
+    '<div class="qual-row"><span>System Tech (MB' + pfx + 'QST)</span><span class="qual-count">' + bn(b.st) + '</span></div>' +
+    '<div class="qual-row"><span>Diagnostic Tech (MB' + pfx + 'QDT)</span><span class="qual-count">' + bn(b.dt) + '</span></div>' +
+    '</div>';
+}
+
+function getBrands(techs) {
+  var b = { PC: {mt:0,st:0,dt:0}, Van: {mt:0,st:0,dt:0} };
+  techs.forEach(function(t) {
+    var q = t.quals;
+    if (q.indexOf('PC_MT')  >= 0) b.PC.mt++;
+    if (q.indexOf('PC_ST')  >= 0) b.PC.st++;
+    if (q.indexOf('PC_DT')  >= 0) b.PC.dt++;
+    if (q.indexOf('Van_MT') >= 0) b.Van.mt++;
+    if (q.indexOf('Van_ST') >= 0) b.Van.st++;
+    if (q.indexOf('Van_DT') >= 0) b.Van.dt++;
+  });
+  return b;
+}
+
+function renderSite() {
+  var site = sel.value;
+  var dash = document.getElementById('dashboard');
+  if (!site) { dash.innerHTML = '<div class="empty-state"><p>Select a site above to view compliance data</p></div>'; return; }
+  currentFilter = 'all';
+
+  var allTechs = SITE_DATA[site].filter(function(p) { return p.is_tech; });
+  var apprCount = allTechs.filter(function(t) { return t.job === 'Apprentice Technician'; }).length;
+  currentTechs = hideAppr
+    ? allTechs.filter(function(t) { return t.job !== 'Apprentice Technician'; })
+    : allTechs;
+  var techs = currentTechs;
+
+  // Assign each tech to exactly one role bucket (DT > ST > MT > none)
+  var byRole = { DT: [], ST: [], MT: [], none: [] };
+  techs.forEach(function(t) { byRole[getPrimaryRole(t.quals)].push(t); });
+
+  var qualified = techs.filter(function(t) { return t.quals.length > 0; });
+  var pct = techs.length ? Math.round(100 * qualified.length / techs.length) : 0;
+
+  // DT scaled requirement: 1 + 1 per additional 15 techs
+  var dtNeeded = techs.length ? 1 + Math.floor((techs.length - 1) / 15) : 1;
+  var dtCount  = byRole.DT.length;
+  // Surplus DTs beyond requirement are reallocated to count toward ST %
+  var surplusDTs   = Math.max(0, dtCount - dtNeeded);
+  var effectiveSTs = byRole.ST.length + surplusDTs;
+  var stPct = techs.length ? Math.round(effectiveSTs / techs.length * 100) : 0;
+  var mtOnlyCount = byRole.MT.length; // has MT but not ST or DT (by getPrimaryRole definition)
+  var mtWaived    = mtOnlyCount === 0 && byRole.none.length === 0 && (byRole.ST.length + byRole.DT.length) === techs.length && techs.length > 0;
+
+  var mtReqRow = mtWaived
+    ? reqRow('waived',
+        'At Least 1 MT-only Technician (MBPCQMT or MBVQMT, not also ST/DT)',
+        'Requirement waived — all ' + techs.length + ' technician(s) hold ST or DT qualifications; no MT floor needed.')
+    : reqRow(mtOnlyCount >= 1,
+        'At Least 1 MT-only Technician (MBPCQMT or MBVQMT, not also ST/DT)',
+        mtOnlyCount + ' MT-only technician(s) present');
+
+  var reqs = [
+    reqRow(techs.length ? pct >= 80 : null,
+      '80% of Productive Technicians Hold an Official Qualification',
+      qualified.length + ' of ' + techs.length + ' hold MBPCQ*/MBVQ* &mdash; <strong>' + pct + '%</strong> (target: &ge;80%)'),
+    reqRow(techs.length ? stPct >= 60 : null,
+      '60% Counted as System Technician (MBPCQST / MBVQST)',
+      effectiveSTs + ' of ' + techs.length + ' counted as ST &mdash; <strong>' + stPct + '%</strong> (target: &ge;60%)' +
+        (surplusDTs > 0 ? ' &mdash; <em>includes ' + surplusDTs + ' surplus DT(s) reallocated to ST</em>' : '')),
+    mtReqRow,
+    reqRow(dtCount >= 1,
+      'At Least 1 Diagnostic Technician (MBPCQDT or MBVQDT)',
+      dtCount + ' DT(s) present'),
+    reqRow(dtCount >= dtNeeded,
+      'DT Count Meets Scaled Requirement (1 + 1 per 15 technicians)',
+      techs.length + ' technicians require ' + dtNeeded + ' DT(s); ' + dtCount + ' present')
+  ];
+
+  var surplusBox = surplusDTs > 0
+    ? '<div class="info-box" style="background:var(--warn-soft);border:1px solid var(--warn);color:var(--warn);">&#9432; <strong>' + surplusDTs +
+      ' surplus DT(s)</strong> exceed the scaled DT requirement of ' + dtNeeded +
+      '. ' + (surplusDTs === 1 ? 'This technician has' : 'These technicians have') +
+      ' been reallocated to count toward the 60% ST requirement.</div>'
+    : '';
+  var mtWaivedBox = mtWaived
+    ? '<div class="info-box" style="background:var(--info-soft);border:1px solid var(--info);color:var(--info);">&#8505;&#65039; <strong>MT requirement waived</strong> &mdash; all ' +
+      techs.length + ' technician(s) at this site hold ST or DT qualifications. The minimum MT rule does not apply.</div>'
+    : '';
+  var apprBox = (hideAppr && apprCount > 0)
+    ? '<div class="info-box" style="background:var(--info-soft);border:1px solid var(--info);color:var(--info);">&#9432; <strong>' + apprCount +
+      ' Apprentice Technician(s)</strong> excluded from all calculations.</div>'
+    : '';
+
+  dash.innerHTML =
+    '<div class="summary-bar">' +
+      '<div class="stat-card dark">' +
+        '<div class="stat-value">' + techs.length + '</div>' +
+        '<div class="stat-label">Total Technicians' + (hideAppr && apprCount > 0 ? '<br><small style="font-size:.62rem;opacity:.65;margin-top:2px">' + apprCount + ' apprentice(s) excl.</small>' : '') + '</div>' +
+      '</div>' +
+      '<div class="stat-card ' + sc(pct) + '"><div class="stat-value">' + pct + '%</div><div class="stat-label">Qualification Rate</div></div>' +
+      '<div class="stat-card green"><div class="stat-value">' + qualified.length + '</div><div class="stat-label">Qualified</div></div>' +
+      '<div class="stat-card red"><div class="stat-value">' + (techs.length - qualified.length) + '</div><div class="stat-label">Not Qualified</div></div>' +
+      '<div class="stat-card"><div class="stat-value" style="color:var(--purple)">' + dtCount + '</div><div class="stat-label">Diagnostic Technicians (DT)</div></div>' +
+      '<div class="stat-card"><div class="stat-value" style="color:var(--pass)">' + effectiveSTs + '</div>' +
+        '<div class="stat-label">Systems Technicians (ST)' + (surplusDTs > 0 ? ' <span title="Incl. ' + surplusDTs + ' surplus DT(s) reallocated from DT">&#x2731;</span>' : '') + '</div></div>' +
+    '</div>' +
+    apprBox + surplusBox + mtWaivedBox +
+    '<div class="gauge-wrap"><h2>Overall Qualification Compliance &mdash; Official course codes only (Passed status)</h2>' +
+      '<div class="gauge-outer">' +
+        '<div class="t-line" style="left:80%"><span class="t-label">80% target</span></div>' +
+        '<div class="gauge-bar"><div class="gauge-fill" style="width:' + Math.min(pct, 100) + '%;background:' + gc(pct) + '">' + pct + '%</div></div>' +
+      '</div>' +
+      '<div class="gauge-legend"><span style="color:var(--pass)">&#9679; &ge;80% Compliant</span> <span style="color:var(--warn)">&#9679; 60-79% Amber</span> <span style="color:var(--fail)">&#9679; &lt;60% At Risk</span></div>' +
+    '</div>' +
+    '<div class="req-card"><h2>Dealer Standards Requirements Check</h2>' + reqs.join('') + '</div>' +
+    '<div class="brands-grid">' + brandCard('PC','Passenger Car','badge-pc','PC') + brandCard('Van','Van','badge-van','V') + '</div>' +
+    '<div class="table-card">' +
+      '<div class="table-card-header"><h2>Technician Detail</h2>' +
+        '<div class="filter-row">' +
+          '<button class="fb active" onclick="setFilter(\'all\',this)">All (' + techs.length + ')</button>' +
+          '<button class="fb" onclick="setFilter(\'pass\',this)">Qualified (' + qualified.length + ')</button>' +
+          '<button class="fb" onclick="setFilter(\'fail\',this)">Not Qualified (' + (techs.length - qualified.length) + ')</button>' +
+        '</div>' +
+      '</div>' +
+      '<div id="techTable">' + buildTable(techs, 'all') + '</div>' +
+    '</div>';
+}
+
+function setFilter(f, btn) {
+  currentFilter = f;
+  document.querySelectorAll('.fb').forEach(function(b) { b.classList.remove('active'); });
+  btn.classList.add('active');
+  document.getElementById('techTable').innerHTML = buildTable(currentTechs, f);
+}
+
+function buildTable(techs, filter) {
+  var rows = filter === 'pass' ? techs.filter(function(t) { return t.quals.length > 0; })
+           : filter === 'fail' ? techs.filter(function(t) { return t.quals.length === 0; })
+           : techs;
+  if (!rows.length) return '<p style="padding:16px;color:var(--text-3);font-style:italic">No technicians match this filter.</p>';
+  var ROLE_MAP = { DT: ['role-dt','DT'], ST: ['role-st','ST'], MT: ['role-mt','MT'], none: ['role-none','&mdash;'] };
+  var siteType = getSiteType(sel.value);
+  return '<table><thead><tr><th>Name</th><th>Job Role</th><th>Status</th><th>Counted As</th><th>Held Highest Qual For</th><th title="The pathway this technician needs next, and whether each course is passed, booked or outstanding">Next Step</th><th>Qualifications Held</th></tr></thead><tbody>' +
+    rows.slice().sort(function(a, b) { return a.name.localeCompare(b.name); }).map(function(t) {
+      var pill = t.quals.length > 0 ? '<span class="pill pill-pass">&#10003; Qualified</span>' : '<span class="pill pill-fail">&#10007; Not Qualified</span>';
+      var r = ROLE_MAP[getPrimaryRole(t.quals)];
+      var roleBadge = '<span class="role-badge ' + r[0] + '">' + r[1] + '</span>';
+      var dur = t.quals.length > 0
+        ? '<span title="Since ' + (t.qual_since || 'unknown') + '">' + durationStr(t.qual_since) + '</span>'
+        : '<span class="no-q">&mdash;</span>';
+      var tags = t.quals.length > 0
+        ? t.quals.map(function(q) { return '<span class="qtag ' + (QUAL_CLS[q]||'') + '" title="' + (QUAL_CODE[q]||q) + '">' + (QUAL_SHORT[q]||q) + '</span>'; }).join('')
+        : '<span class="no-q">No official qualification on record</span>';
+      // v8: what this technician needs next, and whether it is booked
+      var np = nextPathway(getPrimaryRole(t.quals));
+      var nextCell;
+      if (!np) {
+        nextCell = '<span class="no-q">Fully qualified</span>';
+      } else {
+        var nv = pwView(t, np, techBrand(t, siteType));
+        nextCell = '<span style="font-size:0.72rem;font-weight:700;color:var(--text-3);margin-right:7px">' + np + '</span>' +
+          PATHWAYS[np].courses.map(function(c, i) { return pwDot(nv.c[i], c.code + ' ' + c.name, nv.d[i]); }).join(' ');
+      }
+      return '<tr><td>' + esc(t.name) + '</td><td>' + esc(t.job) + '</td><td>' + pill + '</td><td>' + roleBadge + '</td><td>' + dur + '</td><td style="white-space:nowrap">' + nextCell + '</td><td>' + tags + '</td></tr>';
+    }).join('') +
+    '</tbody></table>';
+}
+
+</script>
+</body>
+</html>
