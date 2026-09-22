@@ -103,6 +103,17 @@ body {
   display: flex; align-items: center; justify-content: center;
 }
 .icon-btn:hover { background: var(--surface-2); border-color: var(--border); color: var(--text); }
+.back-link {
+  display: flex; align-items: center; gap: 6px; flex: none;
+  margin-left: -6px; padding: 5px 11px 5px 8px;
+  border-radius: var(--radius-sm);
+  background: transparent; border: 1px solid transparent;
+  color: var(--text-3); font-size: 0.8rem; font-weight: 550;
+  text-decoration: none; white-space: nowrap;
+}
+.back-link:hover { background: var(--surface-2); border-color: var(--border); color: var(--text); }
+.back-link svg { flex: none; }
+@media (max-width: 620px) { .back-link span { display: none; } }
 
 /* ═══ Help popover ════════════════════════════════════════════════════════ */
 .pop-backdrop { display: none; position: fixed; inset: 0; z-index: 70; background: rgba(10,14,22,.35); }
@@ -549,6 +560,7 @@ tr:hover td { background: var(--surface-2); }
 </head>
 <body>
 <div class="appbar">
+  <a class="back-link" href="https://mbtraininguk.github.io/Admin-dashboard/" title="Back to all admin tools"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 19l-7-7 7-7"/></svg><span>All admin tools</span></a>
   <div class="brand">
     <svg width="26" height="26" viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="19" fill="none" stroke="currentColor" stroke-width="1.6"/><line x1="20" y1="20" x2="20" y2="3" stroke="currentColor" stroke-width="1.9"/><line x1="20" y1="20" x2="4.3" y2="29.5" stroke="currentColor" stroke-width="1.9"/><line x1="20" y1="20" x2="35.7" y2="29.5" stroke="currentColor" stroke-width="1.9"/></svg>
     <h1>Technician Qualification Compliance</h1>
