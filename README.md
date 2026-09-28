@@ -229,7 +229,7 @@ Two sets of figures per course:
 
 `Courses to schedule = ceil(outstanding / class size)`, where **outstanding** means the technician needs the course and has not got it booked.
 
-> ⚠️ **Class size defaults to 12 and is a placeholder.** It is an editable input at the top of the tab, not a buried constant — confirm the real MB figure and every number on the tab updates.
+> ⚠️ **Class size is fixed at 12 and is still a placeholder.** The on-page class size input and the red "courses to schedule" summary box were removed on 28 Sep 2026 at Jason's request. The figure now lives only in `demandClassSize` near the top of the Course Demand code — change it there once the real MB figure is confirmed, and every Schedule column updates.
 
 Scope toggle: non-compliant sites only (default) or all sites in scope.
 
@@ -256,7 +256,12 @@ Per-dealer detail, as in v7, plus a new **Next Step** column in the technician t
 
 ### 5 · Network Population
 
-Carried over from v7 unchanged.
+Carried over from v7, then changed on 28 Sep 2026:
+
+- **Count technicians by** switch: **Highest level held** (the default and the original view — each technician once, at DT > ST > MT, adding up to 100%) or **Holds the qualification** (everyone with that level's award code — MBPCQMT/MBVQMT, MBPCQST/MBVQST, MBPCQDT/MBVQDT — recorded as Passed; a technician holding several appears in each, so the figures overlap). It drives the level cards, the Car/Van boxes and the per-dealer table together. "None" (no award at all) and "% Qualified" are the same in both.
+- **Strict by design.** A higher award does **not** count towards a lower one: someone with MBPCQST but no MBPCQMT counts as ST, not MT. Jason's call (28 Sep 2026) — it is possible to hold ST or DT without MT. A first version counted "qualified to at least" (ST implied MT) and was replaced the same day. So ST can exceed MT at a single site.
+- **Record gaps.** In "holds" mode a note shows who that rule leaves out — 177 hold ST with no MT, 52 hold DT with no ST in the 14 Sep export — and each figure opens the list behind it.
+- **Car vs Van is now by technician, not by site.** Each technician is placed by their own job title (`techBrand`, falling back to site type), and each box counts only that brand's qualifications: Car reads MBPCQ*, Van reads MBVQ*. Before, a both-brand site's whole headcount went into both boxes, so the two totals overlapped by 564; now only "Car & Van" technicians (130) appear in both. Technicians holding only the other brand's qualifications (8 Car, 3 Van) show as None in their own box and are listed on request.
 
 ---
 
@@ -367,7 +372,7 @@ All logic lives in the single `<script>` block. Approximate section map:
 - **First sheet only** — the tool always reads the first worksheet.
 - **Column positions are fixed** — update `parseExcelRows` if MB change the export.
 - **Site name matching is exact** — any PDP spelling change drops a site out of the network filter until the array is updated.
-- **Class size is a placeholder of 12** — see [Course Demand](#3--course-demand).
+- **Class size is a placeholder of 12, set in code** — no longer editable on the page; see [Course Demand](#3--course-demand).
 - **The passive filter is unproven** — no export seen so far contains a passive record.
 - **Pathway codes verified September 2026** — if MB introduce new programme or course codes, add them to `PATHWAYS`.
 

@@ -318,6 +318,24 @@ tr:hover td { background: var(--surface-2); }
 .pipe-table td { padding: 9px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
 .pipe-table tr:last-child td { border-bottom: none; }
 .pipe-table tr:hover td { background: var(--surface-2); }
+/* Pipelines: Excel-style filter menu on the Programme and course columns */
+.col-caret { display: inline-flex; vertical-align: middle; margin-left: 4px; font-size: 0.7rem; opacity: 0.45; }
+.col-filter-th.filtered { color: var(--accent); }
+.col-filter-th.filtered .col-caret { opacity: 1; color: var(--accent); }
+.col-menu { position: fixed; z-index: 80; min-width: 240px; padding: 6px; background: var(--surface-1); border: 1px solid var(--border); border-radius: var(--radius-sm); box-shadow: var(--shadow-pop); font-size: 0.82rem; color: var(--text); }
+.col-menu .cm-item { display: flex; align-items: center; gap: 8px; width: 100%; padding: 6px 8px; border: 0; border-radius: 5px; background: none; color: var(--text-2); font: inherit; text-align: left; cursor: pointer; }
+.col-menu .cm-item:hover { background: var(--surface-2); color: var(--text); }
+.col-menu .cm-item.active { color: var(--accent); font-weight: 600; }
+.col-menu .cm-sep { height: 1px; margin: 6px 2px; background: var(--border); }
+.col-menu .cm-opt { display: flex; align-items: center; gap: 8px; padding: 5px 8px; border-radius: 5px; cursor: pointer; }
+.col-menu .cm-opt:hover { background: var(--surface-2); }
+.col-menu .cm-opt input { margin: 0; accent-color: var(--accent); }
+.col-menu .cm-opt .pw { width: 20px; height: 20px; line-height: 20px; font-size: 0.72rem; }
+.col-menu .cm-opt .n { margin-left: auto; padding-left: 12px; color: var(--text-3); font-variant-numeric: tabular-nums; }
+.col-menu .cm-actions { display: flex; justify-content: space-between; gap: 8px; padding: 4px 2px 2px; }
+.col-menu .cm-btn { padding: 5px 14px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface-2); color: var(--text-2); font: inherit; cursor: pointer; }
+.col-menu .cm-btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+.col-menu .cm-btn:disabled { opacity: 0.45; cursor: default; }
 .mod-dot { display: inline-block; width: 22px; height: 22px; border-radius: 50%; font-size: 0.72rem; font-weight: 700; text-align: center; line-height: 22px; margin: 1px; }
 .mod-done  { background: var(--pass-soft); color: var(--pass); }
 .mod-enrol { background: var(--warn-soft); color: var(--warn); }
@@ -391,7 +409,6 @@ tr:hover td { background: var(--surface-2); }
 .pathway-btn:hover { background: var(--surface-2); color: var(--text); }
 .pathway-btn.active { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
 .demand-note { background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px; padding: 14px 20px; margin-bottom: 18px; font-size: 0.83rem; color: var(--text-2); display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-.demand-note input { width: 70px; padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface-2); color: var(--text); font-size: 0.9rem; font-family: inherit; font-weight: 700; }
 .demand-big { font-size: 1.05rem; font-weight: 700; color: var(--warn); }
 .passive-note { font-size: 0.78rem; color: var(--text-3); margin-left: 12px; }
 /* ── v8: Course Demand drill-down ── */
@@ -776,6 +793,48 @@ function switchTab(tab) {
 // ─── Network Population ──────────────────────────────────────────────────────
 var popSortCol    = 'name';
 var popSortDir    = 1;
+// Two ways to count the same technicians (28 Sep 2026):
+//   'highest' — each technician once, at their highest level (DT > ST > MT).
+//               Adds up to 100%; the view the compliance scoring uses.
+//   'holds'   — everyone with that level's award code recorded as Passed, so a
+//               technician holding MT and ST counts in both. Strict: an ST or
+//               DT award does NOT imply MT (Jason, 28 Sep 2026 — it is possible
+//               to hold ST or DT without MT). Overlaps, so not 100%.
+var popMode       = 'highest';
+var popGapOpen    = null;  // which record-gap list is expanded, if any
+
+function setPopMode(m) { popMode = m; renderPopulation(); }
+function togglePopGap(k) { popGapOpen = popGapOpen === k ? null : k; renderPopulation(); }
+
+// A tally carries both counts: DT/ST/MT/none by highest level, and h.DT/h.ST/h.MT
+// by award held. 'none' — no award at all — is the same either way.
+function blankTally() { return { total:0, DT:0, ST:0, MT:0, none:0, h: { DT:0, ST:0, MT:0 } }; }
+function popView(d) {
+  if (popMode !== 'holds') return d;
+  return { total: d.total, DT: d.h.DT, ST: d.h.ST, MT: d.h.MT, none: d.none };
+}
+
+// Highest level held in ONE brand's qualifications ('PC' or 'Van').
+function brandRole(quals, pre) {
+  if (quals.indexOf(pre + '_DT') >= 0) return 'DT';
+  if (quals.indexOf(pre + '_ST') >= 0) return 'ST';
+  if (quals.indexOf(pre + '_MT') >= 0) return 'MT';
+  return 'none';
+}
+
+function holdsLevel(quals, lvl) {
+  return quals.some(function(q) { return q.slice(-3) === '_' + lvl; });
+}
+
+// Adds one technician to a tally. pre = 'PC' or 'Van' reads only that brand's
+// award codes; null reads either brand.
+function tallyTech(d, quals, pre) {
+  d[pre ? brandRole(quals, pre) : getPrimaryRole(quals)]++;
+  d.total++;
+  ['DT','ST','MT'].forEach(function(lvl) {
+    if (pre ? quals.indexOf(pre + '_' + lvl) >= 0 : holdsLevel(quals, lvl)) d.h[lvl]++;
+  });
+}
 
 function renderPopulation() {
   var el = document.getElementById('populationContent');
@@ -784,30 +843,35 @@ function renderPopulation() {
     return;
   }
 
-  var network = { total:0, DT:0, ST:0, MT:0, none:0 };
-  // car/van always computed from ALL sites (not filtered) so the split section is always meaningful
-  var car     = { total:0, DT:0, ST:0, MT:0, none:0 };
-  var van     = { total:0, DT:0, ST:0, MT:0, none:0 };
+  var network = blankTally(), car = blankTally(), van = blankTally();
   var dealerRows = [];
+  var dual = 0;  // "Car & Van" technicians, counted in both boxes
+  // Technicians the records do not add up for, listed on request
+  var gaps = { stNoMT: [], dtNoST: [], carVanOnly: [], vanCarOnly: [] };
 
-  // First pass: car/van split — ignores the Car/Van filter (that is the point of
+  // First pass: Car/Van split. Ignores the Car/Van filter (that is the point of
   // the split) but honours the network filter so the scope bar means one thing.
+  // Each technician goes by their OWN brand (job title, falling back to site
+  // type — techBrand), and each box counts only that brand's qualifications:
+  // the Car box reads MBPCQ*, the Van box MBVQ*. A "Car & Van" technician
+  // appears in both boxes, measured on each brand separately.
   Object.keys(SITE_DATA).forEach(function(site) {
     var siteType = getSiteType(site);
     if (ovNetworkFilter === 'mb'      && !MB_OFFICIAL_SET.has(site)) return;
     if (ovNetworkFilter === 'partner' && !MB_PARTNER_SET.has(site))  return;
     var allTechs = SITE_DATA[site].filter(function(p) { return p.is_tech; });
     var techs = hideAppr ? allTechs.filter(function(t) { return t.job !== 'Apprentice Technician'; }) : allTechs;
-    if (!techs.length) return;
-    var byRole = { DT:[], ST:[], MT:[], none:[] };
-    techs.forEach(function(t) { byRole[getPrimaryRole(t.quals)].push(t); });
-    var isCar  = (siteType === 'car');
-    var isVan  = (siteType === 'van');
-    var isBoth = (siteType === 'both');
-    ['DT','ST','MT','none'].forEach(function(lvl) {
-      var cnt = byRole[lvl].length;
-      if (isCar || isBoth) { car[lvl] += cnt; car.total += cnt; }
-      if (isVan || isBoth) { van[lvl] += cnt; van.total += cnt; }
+    techs.forEach(function(t) {
+      var br = techBrand(t, siteType);
+      if (br === 'BOTH') dual++;
+      if (br === 'PC' || br === 'BOTH') {
+        tallyTech(car, t.quals, 'PC');
+        if (br === 'PC' && brandRole(t.quals, 'PC') === 'none' && brandRole(t.quals, 'Van') !== 'none') gaps.carVanOnly.push({ site: site, p: t });
+      }
+      if (br === 'VN' || br === 'BOTH') {
+        tallyTech(van, t.quals, 'Van');
+        if (br === 'VN' && brandRole(t.quals, 'Van') === 'none' && brandRole(t.quals, 'PC') !== 'none') gaps.vanCarOnly.push({ site: site, p: t });
+      }
     });
   });
 
@@ -823,27 +887,26 @@ function renderPopulation() {
     var techs = hideAppr ? allTechs.filter(function(t) { return t.job !== 'Apprentice Technician'; }) : allTechs;
     if (!techs.length) return;
 
-    var byRole = { DT:[], ST:[], MT:[], none:[] };
-    techs.forEach(function(t) { byRole[getPrimaryRole(t.quals)].push(t); });
-
-    var isVan  = (siteType === 'van');
-    var isCar  = (siteType === 'car');
-    var isBoth = (siteType === 'both');
-
-    ['DT','ST','MT','none'].forEach(function(lvl) {
-      var cnt = byRole[lvl].length;
-      network[lvl]  += cnt;
-      network.total += cnt;
+    var siteT = blankTally();
+    techs.forEach(function(t) {
+      tallyTech(siteT, t.quals, null);
+      tallyTech(network, t.quals, null);
+      // A higher award with the one below it missing from the record
+      if (holdsLevel(t.quals, 'ST') && !holdsLevel(t.quals, 'MT')) gaps.stNoMT.push({ site: site, p: t });
+      if (holdsLevel(t.quals, 'DT') && !holdsLevel(t.quals, 'ST')) gaps.dtNoST.push({ site: site, p: t });
     });
 
+    var v = popView(siteT);
     dealerRows.push({
       name: site, siteType: siteType,
       total: techs.length,
-      DT: byRole.DT.length, ST: byRole.ST.length,
-      MT: byRole.MT.length, none: byRole.none.length,
-      pctQual: techs.length ? Math.round(100 * (techs.length - byRole.none.length) / techs.length) : 0
+      DT: v.DT, ST: v.ST, MT: v.MT, none: v.none,
+      pctQual: techs.length ? Math.round(100 * (techs.length - siteT.none) / techs.length) : 0
     });
   });
+
+  var holdsMode = popMode === 'holds';
+  var netV = popView(network), carV = popView(car), vanV = popView(van);
 
   function pctOf(n, t) { return t > 0 ? Math.round(100 * n / t) : 0; }
 
@@ -859,13 +922,59 @@ function renderPopulation() {
     '<div class="plc-pct" style="color:var(--text-3)">100%</div>' +
     '<div class="plc-lbl" style="color:var(--text-3)">Total Technicians</div></div>' +
     LEVELS.map(function(lvl) {
-      var n = network[lvl.key];
+      var n = netV[lvl.key];
       var p = pctOf(n, network.total);
+      var lbl = holdsMode && lvl.key !== 'none' ? 'Hold the ' + lvl.key + ' qualification' : lvl.label;
       return '<div class="pop-level-card" style="background:' + lvl.bg + ';border-color:' + lvl.colour + '33">' +
         '<div class="plc-val" style="color:' + lvl.colour + '">' + n + '</div>' +
         '<div class="plc-pct" style="color:' + lvl.colour + '">' + p + '%</div>' +
-        '<div class="plc-lbl" style="color:' + lvl.colour + '">' + lvl.label + '</div></div>';
+        '<div class="plc-lbl" style="color:' + lvl.colour + '">' + lbl + '</div></div>';
     }).join('');
+
+  var modeBar =
+    '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px">' +
+      '<span style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-3)">Count technicians by</span>' +
+      '<div class="segmented">' +
+        '<button class="' + (holdsMode ? '' : 'active') + '" onclick="setPopMode(\'highest\')">Highest level held</button>' +
+        '<button class="' + (holdsMode ? 'active' : '') + '" onclick="setPopMode(\'holds\')">Holds the qualification</button>' +
+      '</div>' +
+    '</div>';
+
+  // ── Record gaps: shown in 'holds' mode, where these technicians are NOT
+  //    counted at the lower level. Each figure opens the list behind it.
+  function gapLink(key, n, text) {
+    if (!n) return '';
+    return '<button class="reset-link" style="padding:2px 4px" onclick="togglePopGap(\'' + key + '\')">' +
+      '<strong>' + n + '</strong> ' + text + (popGapOpen === key ? ' &#9652;' : ' &#9662;') + '</button>';
+  }
+  function gapList(key) {
+    if (popGapOpen !== key || !gaps[key].length) return '';
+    var rows = gaps[key].slice().sort(function(a, b) {
+      return a.site.localeCompare(b.site) || a.p.name.localeCompare(b.p.name);
+    }).map(function(g) {
+      var tags = g.p.quals.map(function(q) {
+        return '<span class="qtag ' + (QUAL_CLS[q] || '') + '" title="' + (QUAL_CODE[q] || q) + '">' + (QUAL_SHORT[q] || q) + '</span>';
+      }).join('');
+      return '<tr><td>' + esc(g.site) + '</td><td>' + esc(g.p.name) + '</td><td>' + esc(g.p.job) + '</td><td>' + tags + '</td></tr>';
+    }).join('');
+    return '<div class="pop-dealer-wrap" style="max-height:320px;margin:10px 0 4px"><table class="pop-dealer-table">' +
+      '<thead><tr><th>Site</th><th>Name</th><th>Job Role</th><th>Qualifications recorded</th></tr></thead>' +
+      '<tbody>' + rows + '</tbody></table></div>';
+  }
+  var holdsNote = 'Each level counts everyone with that award code (MBPCQ* or MBVQ*) recorded as Passed. ' +
+    'A technician holding more than one appears in each, so these do not add up to 100%.';
+  var chainGaps = holdsMode && (gaps.stNoMT.length || gaps.dtNoST.length)
+    ? '<div style="font-size:0.82rem;color:var(--text-2);margin:-10px 0 20px">' +
+        '<div>' + holdsNote + ' A higher award does not count towards a lower one:</div>' +
+        '<div style="display:flex;gap:6px 14px;flex-wrap:wrap;margin-top:4px">' +
+          gapLink('stNoMT', gaps.stNoMT.length, 'hold ST with no MT award &mdash; not counted as MT') +
+          gapLink('dtNoST', gaps.dtNoST.length, 'hold DT with no ST award &mdash; not counted as ST') +
+        '</div>' +
+        gapList('stNoMT') + gapList('dtNoST') +
+      '</div>'
+    : (holdsMode
+        ? '<div style="font-size:0.82rem;color:var(--text-2);margin:-10px 0 20px">' + holdsNote + '</div>'
+        : '');
 
   // ── Generic bar builder ──
   function levelBars(data) {
@@ -914,8 +1023,7 @@ function renderPopulation() {
 
   var STYPE_ICON = { car:'&#128664;', van:'&#128657;', both:'&#128664;&#128657;' };
   var tableRows = dealerRows.map(function(r) {
-    var qual = r.total - r.none;
-    var bw = r.total > 0 ? Math.round(100 * qual / r.total) : 0;
+    var bw = r.pctQual;
     var bc = bw >= 80 ? 'var(--pass)' : bw >= 60 ? 'var(--warn)' : 'var(--fail)';
     function lvlCell(n, col) {
       var p = r.total > 0 ? Math.round(100 * n / r.total) : 0;
@@ -937,31 +1045,45 @@ function renderPopulation() {
     '</tr>';
   }).join('');
 
+  var crossBrand = (gaps.carVanOnly.length || gaps.vanCarOnly.length)
+    ? '<div style="display:flex;gap:6px 14px;flex-wrap:wrap;margin-top:4px">' +
+        gapLink('carVanOnly', gaps.carVanOnly.length, 'Car technician' + (gaps.carVanOnly.length === 1 ? ' holds' : 's hold') + ' only Van qualifications') +
+        gapLink('vanCarOnly', gaps.vanCarOnly.length, 'Van technician' + (gaps.vanCarOnly.length === 1 ? ' holds' : 's hold') + ' only Car qualifications') +
+      '</div>' + gapList('carVanOnly') + gapList('vanCarOnly')
+    : '';
+
   el.innerHTML =
     scopeBar(false) +
+    modeBar +
     '<div class="pop-level-grid">' + levelCards + '</div>' +
+    chainGaps +
     '<div class="ov-section">' +
-      '<h2>Qualification Level Split — Car vs Van Sites</h2>' +
+      '<h2>Qualification Level Split — Car vs Van Technicians</h2>' +
+      '<div style="font-size:0.82rem;color:var(--text-2);margin:-4px 0 14px">' +
+        'Each technician is placed by their own job title (or their site, where the title names neither), and each box counts only that brand&rsquo;s qualifications &mdash; Car reads MBPCQ*, Van reads MBVQ*.' +
+        (dual > 0 ? ' The ' + dual + ' &ldquo;Car &amp; Van&rdquo; technician' + (dual === 1 ? ' appears' : 's appear') + ' in both.' : '') +
+        crossBrand +
+      '</div>' +
       '<div class="pop-stream-grid">' +
         '<div class="pop-stream-card">' +
-          '<h3>Car Sites <span style="font-size:0.8rem;color:var(--text-3);font-weight:400">' + car.total + ' technicians</span></h3>' +
-          levelBars(car) +
+          '<h3>Car Technicians <span style="font-size:0.8rem;color:var(--text-3);font-weight:400">' + car.total + ' technicians &middot; Car qualifications</span></h3>' +
+          levelBars(carV) +
         '</div>' +
         '<div class="pop-stream-card">' +
-          '<h3>Van Sites <span style="font-size:0.8rem;color:var(--text-3);font-weight:400">' + van.total + ' technicians</span></h3>' +
-          levelBars(van) +
+          '<h3>Van Technicians <span style="font-size:0.8rem;color:var(--text-3);font-weight:400">' + van.total + ' technicians &middot; Van qualifications</span></h3>' +
+          levelBars(vanV) +
         '</div>' +
       '</div>' +
     '</div>' +
     '<div class="ov-section">' +
-      '<h2>Qualification Levels by Dealer</h2>' +
+      '<h2>Qualification Levels by Dealer' + (holdsMode ? ' &mdash; holds the qualification' : '') + '</h2>' +
       '<div class="pop-dealer-wrap"><table class="pop-dealer-table">' +
         '<thead><tr>' +
           pSortTh('Site',        'name') +
           pSortTh('Total',       'total') +
-          pSortTh('DT',          'DT',      'Diagnostic Technicians') +
-          pSortTh('ST',          'ST',      'Systems Technicians') +
-          pSortTh('MT',          'MT',      'Maintenance Technicians') +
+          pSortTh('DT',          'DT',      holdsMode ? 'Hold MBPCQDT or MBVQDT' : 'Diagnostic Technicians') +
+          pSortTh('ST',          'ST',      holdsMode ? 'Hold MBPCQST or MBVQST' : 'Systems Technicians') +
+          pSortTh('MT',          'MT',      holdsMode ? 'Hold MBPCQMT or MBVQMT' : 'Maintenance Technicians') +
           pSortTh('None',        'none',    'No qualification') +
           pSortTh('% Qualified', 'pctQual') +
         '</tr></thead>' +
@@ -2119,6 +2241,166 @@ function pipeSortLabel() {
   return PIPE_SORT_LABEL[pipeSortCol] || 'site';
 }
 
+// ─── Column filters on Programme and the course columns ─────────────────────
+// Excel-style: each of those headers opens a menu of the five states, and only
+// the ticked states are kept. Filters on different columns combine with AND,
+// and sit on top of the chip / tile filter. Keyed like the sort columns
+// ('prog', 'c:<pathway>:<idx>'); a key that is absent means "no filter".
+var pipeColFilters = {};   // key -> { state: true } for the states kept
+var pipeBaseRows   = [];   // rows passing the chip filter, for the menu counts
+var pipeColMenu    = null; // { key, sel, opts } while a menu is open
+
+// 'na' only arises in the All Three view: the technician is not in that
+// pathway at all, which the table draws as a faint dot.
+var PIPE_NA_META = { cls: 'pw-none', sym: '&middot;', label: 'Not in this pathway' };
+
+function pipeCellState(r, key) {
+  if (key === 'prog') { var cp = r.pws[pipelinePathway]; return cp ? cp.v.prog : 'none'; }
+  var parts = key.split(':'), c = r.pws[parts[1]];
+  return c ? c.v.c[parseInt(parts[2], 10)] : 'na';
+}
+
+function pipeColMatches(r, skipKey) {
+  for (var key in pipeColFilters) {
+    if (key === skipKey) continue;
+    if (!pipeColFilters[key][pipeCellState(r, key)]) return false;
+  }
+  return true;
+}
+
+function pipeColLabel(key) {
+  if (key === 'prog') return 'Programme';
+  var parts = key.split(':');
+  var code = PATHWAYS[parts[1]].courses[parseInt(parts[2], 10)].code;
+  return pipelinePathway === 'ALL' ? PATHWAYS[parts[1]].short + ' ' + code : code;
+}
+
+// Header for a filterable column: click opens the menu rather than sorting.
+function pipeColTh(label, key, title, style) {
+  var filtered = !!pipeColFilters[key];
+  var sortArrow = pipeSortCol === key
+    ? '<span class="sort-arrow active">' + (pipeSortDir === 1 ? '&#9650;' : '&#9660;') + '</span>' : '';
+  var caret = filtered
+    ? '<svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor" aria-label="Filtered"><path d="M1 2h14l-5.5 6.5V14l-3-1.5V8.5z"/></svg>'
+    : '&#9662;';
+  var t  = title ? ' title="' + esc(title) + (filtered ? ' (filtered)' : '') + '"' : '';
+  var st = style ? ' style="' + style + '"' : '';
+  return '<th class="sort-th col-filter-th' + (filtered ? ' filtered' : '') + '"' + st + t +
+    ' onclick="openPipeColMenu(\'' + key + '\', this, event)">' + label + sortArrow +
+    '<span class="col-caret">' + caret + '</span></th>';
+}
+
+function openPipeColMenu(key, th, ev) {
+  ev.stopPropagation();
+  var reopen = !(pipeColMenu && pipeColMenu.key === key);
+  closePipeColMenu();
+  if (!reopen) return;
+
+  // Counts reflect the other column filters, as in Excel, so they add up to
+  // what the table would show if this column's filter were cleared.
+  var rows = pipeBaseRows.filter(function(r) { return pipeColMatches(r, key); });
+  var counts = {};
+  rows.forEach(function(r) { var s = pipeCellState(r, key); counts[s] = (counts[s] || 0) + 1; });
+  var opts = ['passed', 'booked', 'await', 'enrol', 'none'];
+  if (key !== 'prog' && pipelinePathway === 'ALL') opts.push('na');
+
+  var cur = pipeColFilters[key], sel = {};
+  opts.forEach(function(s) { sel[s] = cur ? !!cur[s] : true; });
+  pipeColMenu = { key: key, sel: sel, opts: opts };
+
+  var sortItem = function(dir, label) {
+    var on = pipeSortCol === key && pipeSortDir === dir;
+    return '<button class="cm-item' + (on ? ' active' : '') + '" onclick="pipeColSort(' + dir + ')">' + label + '</button>';
+  };
+  var m = document.createElement('div');
+  m.className = 'col-menu';
+  m.id = 'pipeColMenu';
+  m.onclick = function(e) { e.stopPropagation(); };
+  m.innerHTML =
+    sortItem(1,  '&#8593; Sort ascending') +
+    sortItem(-1, '&#8595; Sort descending') +
+    '<div class="cm-sep"></div>' +
+    '<label class="cm-opt"><input type="checkbox" id="cmAll" onchange="pipeColToggleAll(this.checked)"> Select all</label>' +
+    opts.map(function(s) {
+      var meta = s === 'na' ? PIPE_NA_META : PW_STATE_META[s];
+      return '<label class="cm-opt"><input type="checkbox" data-s="' + s + '" onchange="pipeColToggle(\'' + s + '\', this.checked)">' +
+        '<span class="pw ' + meta.cls + '">' + meta.sym + '</span>' + meta.label +
+        '<span class="n">' + (counts[s] || 0) + '</span></label>';
+    }).join('') +
+    '<div class="cm-sep"></div>' +
+    '<div class="cm-actions">' +
+      '<button class="cm-btn" onclick="pipeColClear()">Clear</button>' +
+      '<button class="cm-btn primary" id="cmApply" onclick="pipeColApply()">Apply</button>' +
+    '</div>';
+  document.body.appendChild(m);
+  pipeColSync();
+
+  // Fixed to the viewport so the table's own scroll box cannot clip it.
+  var r = th.getBoundingClientRect();
+  var left = Math.min(r.left, window.innerWidth - m.offsetWidth - 8);
+  var top  = r.bottom + 4;
+  if (top + m.offsetHeight > window.innerHeight - 8) top = Math.max(8, r.top - m.offsetHeight - 4);
+  m.style.left = Math.max(8, left) + 'px';
+  m.style.top  = top + 'px';
+}
+
+// Brings the checkboxes, Select all and Apply into line with the pending selection.
+function pipeColSync() {
+  var m = document.getElementById('pipeColMenu');
+  if (!m || !pipeColMenu) return;
+  var nOn = 0;
+  pipeColMenu.opts.forEach(function(s) {
+    m.querySelector('input[data-s="' + s + '"]').checked = pipeColMenu.sel[s];
+    if (pipeColMenu.sel[s]) nOn++;
+  });
+  var all = document.getElementById('cmAll');
+  all.checked = nOn === pipeColMenu.opts.length;
+  all.indeterminate = nOn > 0 && nOn < pipeColMenu.opts.length;
+  document.getElementById('cmApply').disabled = nOn === 0;
+}
+
+function pipeColToggle(s, on) { pipeColMenu.sel[s] = on; pipeColSync(); }
+function pipeColToggleAll(on) {
+  pipeColMenu.opts.forEach(function(s) { pipeColMenu.sel[s] = on; });
+  pipeColSync();
+}
+
+function pipeColApply() {
+  var key = pipeColMenu.key, sel = pipeColMenu.sel, kept = {}, nOn = 0;
+  pipeColMenu.opts.forEach(function(s) { if (sel[s]) { kept[s] = true; nOn++; } });
+  // Everything ticked is the same as no filter, so store nothing.
+  if (nOn === pipeColMenu.opts.length) delete pipeColFilters[key];
+  else pipeColFilters[key] = kept;
+  closePipeColMenu();
+  renderPipeline();
+}
+
+function pipeColClear() {
+  delete pipeColFilters[pipeColMenu.key];
+  closePipeColMenu();
+  renderPipeline();
+}
+
+function pipeColSort(dir) {
+  pipeSortCol = pipeColMenu.key;
+  pipeSortDir = dir;
+  closePipeColMenu();
+  renderPipeline();
+}
+
+function clearPipeColFilters() { pipeColFilters = {}; renderPipeline(); }
+
+function closePipeColMenu() {
+  var m = document.getElementById('pipeColMenu');
+  if (m) m.remove();
+  pipeColMenu = null;
+}
+document.addEventListener('click', function() { if (pipeColMenu) closePipeColMenu(); });
+document.addEventListener('keydown', function(e) { if (e.key === 'Escape' && pipeColMenu) closePipeColMenu(); });
+window.addEventListener('resize', function() { if (pipeColMenu) closePipeColMenu(); });
+// Any scroll (page or the table box) would leave the menu stranded off its header.
+window.addEventListener('scroll', function() { if (pipeColMenu) closePipeColMenu(); }, true);
+
 // Honours the Overview network / car-van filters so the two tabs always agree.
 function pipelineScope() {
   return Object.keys(SITE_DATA).sort().filter(function(s) {
@@ -2263,7 +2545,10 @@ function renderPipeline() {
     }
   }
 
-  var shown = people.filter(pipeMatchesFilter);
+  closePipeColMenu();
+  pipeBaseRows = people.filter(pipeMatchesFilter);
+  var shown = pipeBaseRows.filter(function(r) { return pipeColMatches(r); });
+  var colKeys = Object.keys(pipeColFilters);
   shown.sort(function(a, b) {
     var av = pipeSortVal(a, pipeSortCol), bv = pipeSortVal(b, pipeSortCol);
     if (av < bv) return -1 * pipeSortDir;
@@ -2287,7 +2572,7 @@ function renderPipeline() {
       var st = (pipelinePathway === 'ALL' && i === 0)
         ? 'text-align:center;border-left:2px solid var(--border-strong)'
         : 'text-align:center';
-      return pipeSortTh(c.code, 'c:' + pw + ':' + i, PATHWAYS[pw].short + ' — ' + c.name, st);
+      return pipeColTh(c.code, 'c:' + pw + ':' + i, PATHWAYS[pw].short + ' — ' + c.name, st);
     }).join('');
   }).join('');
 
@@ -2347,23 +2632,28 @@ function renderPipeline() {
         filterBtn('booked',    'Any booking (' + nBooked + ')') +
         filterBtn('none',      'Not started (' + nNone + ')') +
         filterBtn('needed',    '&#127919; Needed to clear the standard (' + nNeeded + ')') +
+        (colKeys.length ? '<button class="reset-link" onclick="clearPipeColFilters()">Clear column filters</button>' : '') +
       '</div>' +
-      (shown.length === 0
-        ? '<p style="padding:20px;color:var(--text-3);font-style:italic">No technicians match this filter.</p>'
-        : '<div class="pipe-table-wrap"><table class="pipe-table">' +
-            '<thead><tr>' +
-              pipeSortTh('Site','site') +
-              pipeSortTh('Name','name') +
-              pipeSortTh('Job Role','job') +
-              pipeSortTh('Brand','brand', null, 'text-align:center') +
-              pipeSortTh('Holds','holds','Highest qualification currently held','text-align:center') +
-              (pipelinePathway === 'ALL' ? '' : pipeSortTh('Programme','prog','Programme enrolment','text-align:center')) +
-              headCourses +
-            '</tr></thead>' +
-            '<tbody>' + tableRows + '</tbody>' +
-          '</table></div>') +
+      // The table stays up even when empty, so the column headers — and the
+      // filters on them — are still there to be changed.
+      '<div class="pipe-table-wrap"><table class="pipe-table">' +
+        '<thead><tr>' +
+          pipeSortTh('Site','site') +
+          pipeSortTh('Name','name') +
+          pipeSortTh('Job Role','job') +
+          pipeSortTh('Brand','brand', null, 'text-align:center') +
+          pipeSortTh('Holds','holds','Highest qualification currently held','text-align:center') +
+          (pipelinePathway === 'ALL' ? '' : pipeColTh('Programme','prog','Programme enrolment','text-align:center')) +
+          headCourses +
+        '</tr></thead>' +
+        '<tbody>' + (shown.length ? tableRows
+          : '<tr><td colspan="99" style="padding:20px;color:var(--text-3);font-style:italic">No technicians match this filter.</td></tr>') +
+        '</tbody>' +
+      '</table></div>' +
       '<p style="font-size:0.78rem;color:var(--text-3);margin-top:10px">Showing ' + shown.length + ' of ' + nAll +
-        ' technicians, sorted by ' + pipeSortLabel() + (pipeSortDir === 1 ? ' (ascending)' : ' (descending)') + '.</p>' +
+        ' technicians' +
+        (colKeys.length ? ', filtered on ' + colKeys.map(pipeColLabel).join(', ') : '') +
+        ', sorted by ' + pipeSortLabel() + (pipeSortDir === 1 ? ' (ascending)' : ' (descending)') + '.</p>' +
     '</div>';
 }
 
@@ -2375,6 +2665,9 @@ function pipeStat(key, tone, value, label) {
 
 function setPipelineFilter(f)  { pipelineFilter = f; renderPipeline(); }
 function setPipelinePathway(p) {
+  // 'prog' always means the current pathway's programme, so a filter on it
+  // does not carry over to a different pathway.
+  if (p !== pipelinePathway) delete pipeColFilters.prog;
   pipelinePathway = p;
   // 'cp2' means nothing on a two-course pathway, and nothing at all in the
   // combined view — fall back to All rather than showing an empty table.
@@ -2387,6 +2680,11 @@ function setPipelinePathway(p) {
   if (pipeSortCol.indexOf('c:') === 0 && p !== 'ALL' && pipeSortCol.indexOf('c:' + p + ':') !== 0) {
     pipeSortCol = 'site'; pipeSortDir = 1;
   }
+  // Same for column filters: drop any on a column the new view does not show,
+  // rather than leave an invisible filter hiding rows.
+  Object.keys(pipeColFilters).forEach(function(key) {
+    if (key !== 'prog' && p !== 'ALL' && key.indexOf('c:' + p + ':') !== 0) delete pipeColFilters[key];
+  });
   renderPipeline();
 }
 
@@ -2394,15 +2692,12 @@ function setPipelinePathway(p) {
 // Lee's fourth question: "How many courses do we need to schedule to allow all
 // the non-compliant sites to meet the standards?" Outstanding = technicians who
 // need the course and have neither passed it nor got it booked.
+// Fixed at 12 now the on-page class size control has gone (28 Sep 2026, at
+// Jason's request). Still drives the Schedule columns: Outstanding / 12, rounded up.
 var demandClassSize = 12;
 var demandScope     = 'noncomp'; // 'noncomp' | 'all'
 var LEE_CODES = { T2115F: 1, T2116F: 1, T0004F: 1, T2121F: 1, T2122F: 1 };
 
-function setDemandClassSize(v) {
-  var n = parseInt(v, 10);
-  demandClassSize = (isNaN(n) || n < 1) ? 1 : n;
-  renderDemand();
-}
 function setDemandScope(s) { demandScope = s; demandDrill = null; renderDemand(); }
 
 // v8: Course Demand drill-down — clicking any figure lists the sites and
@@ -2596,7 +2891,6 @@ function renderDemand() {
       if (r && !(r.passOverall && r.passST && r.passMT && r.passDT1 && r.passDTScale)) sitesOnly[s] = 1;
     });
   }
-  var siteCount = sitesOnly ? Object.keys(sitesOnly).length : scopeSites.length;
 
   var groups = PW_ORDER.map(function(pw) {
     var cands  = collectPipeline(pw, sitesOnly);
@@ -2620,14 +2914,6 @@ function renderDemand() {
     });
     DEMAND_DATA[pw] = { needed: needed, all: cands };
     return { pw: pw, label: PATHWAYS[pw].label, people: cands.length, needed: needed.length, rows: rows };
-  });
-
-  var gapCourses = 0, gapPlaces = 0, allCourses = 0, allPlaces = 0;
-  groups.forEach(function(g) {
-    g.rows.forEach(function(r) {
-      gapCourses += r.gapSched; gapPlaces += r.gapOut;
-      allCourses += r.allSched; allPlaces += r.allOut;
-    });
   });
 
   var scopeBtn = function(val, label) {
@@ -2672,7 +2958,7 @@ function renderDemand() {
             '<th style="text-align:center" title="Technicians needed to close the gap who still need this course">Need it</th>' +
             '<th style="text-align:center" title="Of those, already booked on a dated course">Booked</th>' +
             '<th style="text-align:center" title="Need it and not booked — the real demand">Outstanding</th>' +
-            '<th style="text-align:center;border-right:2px solid var(--border-strong)" title="Outstanding divided by class size, rounded up">Schedule</th>' +
+            '<th style="text-align:center;border-right:2px solid var(--border-strong)" title="Outstanding divided by a class size of ' + demandClassSize + ', rounded up">Schedule</th>' +
             '<th style="text-align:center" title="Everyone in this pathway who needs the course and is not booked">Outstanding</th>' +
             '<th style="text-align:center" title="If the whole pathway were put through">Schedule</th>' +
           '</tr>' +
@@ -2689,23 +2975,8 @@ function renderDemand() {
 
   el.innerHTML =
     scopeBar(false) +
-    '<div class="ov-hero neutral">' +
-      '<div class="ov-hero-num">' + gapCourses + '</div>' +
-      '<div class="ov-hero-txt">' +
-        '<h2>course' + (gapCourses === 1 ? '' : 's') + ' to schedule to clear the standard</h2>' +
-        '<p>' + gapPlaces + ' outstanding places across ' + siteCount + ' site' + (siteCount === 1 ? '' : 's') +
-        ' at ' + demandClassSize + ' per course</p>' +
-      '</div>' +
-      '<div class="ov-hero-side">' +
-        '<div><div class="hs-val">' + allCourses + '</div><div class="hs-lbl">if the full pathway ran</div></div>' +
-        '<div><div class="hs-val">' + allPlaces + '</div><div class="hs-lbl">places in total</div></div>' +
-      '</div>' +
-    '</div>' +
     '<div class="demand-note">' +
-      '<span><strong>Class size</strong></span>' +
-      '<input type="number" min="1" max="30" value="' + demandClassSize + '" onchange="setDemandClassSize(this.value)" onkeyup="if(event.key===\'Enter\')setDemandClassSize(this.value)">' +
-      '<span style="color:var(--warn)">&#9888;&#65039; Placeholder &mdash; confirm the real MB class size and every figure here updates.</span>' +
-      '<span style="margin-left:auto">' + scopeBtn('noncomp', 'Non-compliant sites only') + ' ' + scopeBtn('all', 'All sites in scope') + '</span>' +
+      scopeBtn('noncomp', 'Non-compliant sites only') + ' ' + scopeBtn('all', 'All sites in scope') +
     '</div>' +
     '<div style="margin-bottom:16px">' +
       '<span style="font-size:0.83rem;color:var(--text-3)">Click any figure to list the sites and delegates behind it.</span>' +
@@ -2908,8 +3179,14 @@ function buildTable(techs, filter) {
   if (!rows.length) return '<p style="padding:16px;color:var(--text-3);font-style:italic">No technicians match this filter.</p>';
   var ROLE_MAP = { DT: ['role-dt','DT'], ST: ['role-st','ST'], MT: ['role-mt','MT'], none: ['role-none','&mdash;'] };
   var siteType = getSiteType(sel.value);
+  // Grouped by Counted As — MT, then ST, then DT, then not qualified — and
+  // alphabetical by name within each group.
+  var ROLE_ORDER = { MT: 0, ST: 1, DT: 2, none: 3 };
   return '<table><thead><tr><th>Name</th><th>Job Role</th><th>Status</th><th>Counted As</th><th>Held Highest Qual For</th><th title="The pathway this technician needs next, and whether each course is passed, booked or outstanding">Next Step</th><th>Qualifications Held</th></tr></thead><tbody>' +
-    rows.slice().sort(function(a, b) { return a.name.localeCompare(b.name); }).map(function(t) {
+    rows.slice().sort(function(a, b) {
+      var d = ROLE_ORDER[getPrimaryRole(a.quals)] - ROLE_ORDER[getPrimaryRole(b.quals)];
+      return d !== 0 ? d : a.name.localeCompare(b.name);
+    }).map(function(t) {
       var pill = t.quals.length > 0 ? '<span class="pill pill-pass">&#10003; Qualified</span>' : '<span class="pill pill-fail">&#10007; Not Qualified</span>';
       var r = ROLE_MAP[getPrimaryRole(t.quals)];
       var roleBadge = '<span class="role-badge ' + r[0] + '">' + r[1] + '</span>';
