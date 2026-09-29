@@ -928,7 +928,7 @@ function renderPopulation() {
       // In 'holds' mode the levels overlap, so show the complement of No Qualification.
       // Its % is taken as 100 minus the None % so the pair always makes exactly 100%.
       var anyCard = holdsMode && lvl.key === 'none'
-        ? '<div class="pop-level-card" style="background:var(--surface-2)">' +
+        ? '<div class="pop-level-card" style="background:var(--surface-2);border-color:currentColor">' +
             '<div class="plc-val" style="color:var(--text)">' + (network.total - n) + '</div>' +
             '<div class="plc-pct" style="color:var(--text-3)">' + (network.total ? 100 - p : 0) + '%</div>' +
             '<div class="plc-lbl" style="color:var(--text-3)">Hold any qualification</div></div>'
