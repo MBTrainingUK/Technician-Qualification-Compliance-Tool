@@ -925,7 +925,15 @@ function renderPopulation() {
       var n = netV[lvl.key];
       var p = pctOf(n, network.total);
       var lbl = holdsMode && lvl.key !== 'none' ? 'Hold the ' + lvl.key + ' qualification' : lvl.label;
-      return '<div class="pop-level-card" style="background:' + lvl.bg + ';border-color:' + lvl.colour + '33">' +
+      // In 'holds' mode the levels overlap, so show the complement of No Qualification.
+      // Its % is taken as 100 minus the None % so the pair always makes exactly 100%.
+      var anyCard = holdsMode && lvl.key === 'none'
+        ? '<div class="pop-level-card" style="background:var(--surface-2)">' +
+            '<div class="plc-val" style="color:var(--text)">' + (network.total - n) + '</div>' +
+            '<div class="plc-pct" style="color:var(--text-3)">' + (network.total ? 100 - p : 0) + '%</div>' +
+            '<div class="plc-lbl" style="color:var(--text-3)">Hold any qualification</div></div>'
+        : '';
+      return anyCard + '<div class="pop-level-card" style="background:' + lvl.bg + ';border-color:' + lvl.colour + '33">' +
         '<div class="plc-val" style="color:' + lvl.colour + '">' + n + '</div>' +
         '<div class="plc-pct" style="color:' + lvl.colour + '">' + p + '%</div>' +
         '<div class="plc-lbl" style="color:' + lvl.colour + '">' + lbl + '</div></div>';
@@ -962,7 +970,8 @@ function renderPopulation() {
       '<tbody>' + rows + '</tbody></table></div>';
   }
   var holdsNote = 'Each level counts everyone with that award code (MBPCQ* or MBVQ*) recorded as Passed. ' +
-    'A technician holding more than one appears in each, so these do not add up to 100%.';
+    'A technician holding more than one appears in each, so these do not add up to 100%; ' +
+    'Hold any qualification and No qualification together do.';
   var chainGaps = holdsMode && (gaps.stNoMT.length || gaps.dtNoST.length)
     ? '<div style="font-size:0.82rem;color:var(--text-2);margin:-10px 0 20px">' +
         '<div>' + holdsNote + ' A higher award does not count towards a lower one:</div>' +
