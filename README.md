@@ -254,6 +254,8 @@ Filename is `<COURSE>-<what>-<date>.xlsx`, e.g. `T2115F-outstanding-2026-09-16.x
 
 Per-dealer detail, as in v7, plus a new **Next Step** column in the technician table showing the pathway that technician needs next and the state of each of its courses.
 
+From 8 Oct 2026 each course in Next Step shows its **course code** beside its state symbol (e.g. `MT ✓ T2115F ○ T2116F`), and the cell wraps so a DT's seven courses stay readable. Hovering a symbol still gives the full course name, date and venue. Requested by the admin team after using it for MT chasing. The Pipelines table already carries the codes as its column headers, so it is unchanged.
+
 ### 5 · Network Population
 
 Carried over from v7, then changed on 28 Sep 2026:
@@ -382,6 +384,7 @@ All logic lives in the single `<script>` block. Approximate section map:
 
 | Version | Key changes |
 |---------|-------------|
+| v11 (8 Oct 2026) | By Site **Next Step** shows course codes beside each state symbol. Display only — no figure changes |
 | **v11** | **Loads in about 1.5s instead of 15s.** A purpose-built reader parses the PDP export directly — reading the zip, decompressing with the browser's native `DecompressionStream` and scanning the sheet XML straight into rows — replacing `XLSX.read`, which took 12.5s and 1.8GB of heap on the September export. SheetJS remains loaded for the delegate Excel export and as an automatic fallback if the fast reader cannot handle a file. **Also fixes a date off-by-one:** `toISODate` read SheetJS's dates via `toISOString()`, which on any machine ahead of UTC (the UK in summer, CET all year) reported every date a day early — including the `Course Date` column of the delegate export. Dates are now the true calendar date, so any date shown in By Site or exported moves one day later than v10 reported. No compliance figure changes: verified across all 598,393 rows and all 298 scored sites against the same export |
 | **v10** | Interface rebuild. Delegate lists export to **Excel** instead of PDF, dropping the jsPDF dependency; apprentice filter became a segmented control and the selected filter segment is now solid accent rather than just bold.  Light theme by default with a dark toggle; every colour moved to design tokens; two-state shell so the loader collapses to a chip once data is in; sticky filter bar replacing the per-tab button rows; qualification codes, counting rules and methodology moved into a help popover; per-tab prose behind ⓘ disclosures; plain text tabs; tabular figures. No change to any calculation — verified by diffing both versions against the same export |
 | v8 | Rebuilt to Lee's brief and the meeting notes. Overview leads with non-compliant sites; interactive donut charts replace stat cards; issue-count row removed; Pipelines tab covers MT, ST and DT with an enrolled-vs-booked distinction and an "enrolled but not yet booked" summary; new Course Demand tab answering how many courses to schedule, with every figure clickable to list the sites and delegates behind it and export that list; per-pathway completed-count filters; one shared scope bar across all multi-site tabs; passive delegate filter on column F; Next Step column in By Site; Car/Van course variant conflation fixed; `index.html` repointed |

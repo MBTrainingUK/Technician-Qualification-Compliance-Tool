@@ -404,6 +404,10 @@ tr:hover td { background: var(--surface-2); }
 .pw-await  { background: var(--warn-soft); color: var(--warn); }
 .pw-enrol  { background: var(--purple-soft); color: var(--purple); }
 .pw-none   { background: var(--surface-2); color: var(--text-3); }
+/* By Site Next Step: each course dot with its code beside it, wrapping as needed */
+.ns-cell { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; min-width: 190px; }
+.ns-pw { font-size: 0.72rem; font-weight: 700; color: var(--text-3); }
+.ns-course { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; font-size: 0.72rem; color: var(--text-2); font-variant-numeric: tabular-nums; }
 .pw-key { display: flex; gap: 16px; flex-wrap: wrap; align-items: center; font-size: 0.78rem; color: var(--text-2); margin-bottom: 14px; }
 .pw-key span.k { display: flex; align-items: center; gap: 6px; }
 .pathway-toggle { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
@@ -3214,10 +3218,14 @@ function buildTable(techs, filter) {
         nextCell = '<span class="no-q">Fully qualified</span>';
       } else {
         var nv = pwView(t, np, techBrand(t, siteType));
-        nextCell = '<span style="font-size:0.72rem;font-weight:700;color:var(--text-3);margin-right:7px">' + np + '</span>' +
-          PATHWAYS[np].courses.map(function(c, i) { return pwDot(nv.c[i], c.code + ' ' + c.name, nv.d[i]); }).join(' ');
+        // Course code shown beside each dot (feedback, Oct 2026) — the hover
+        // tip still carries the full name, date and venue.
+        nextCell = '<div class="ns-cell"><span class="ns-pw">' + np + '</span>' +
+          PATHWAYS[np].courses.map(function(c, i) {
+            return '<span class="ns-course">' + pwDot(nv.c[i], c.code + ' ' + c.name, nv.d[i]) + esc(c.code) + '</span>';
+          }).join('') + '</div>';
       }
-      return '<tr><td>' + esc(t.name) + '</td><td>' + esc(t.job) + '</td><td>' + pill + '</td><td>' + roleBadge + '</td><td>' + dur + '</td><td style="white-space:nowrap">' + nextCell + '</td><td>' + tags + '</td></tr>';
+      return '<tr><td>' + esc(t.name) + '</td><td>' + esc(t.job) + '</td><td>' + pill + '</td><td>' + roleBadge + '</td><td>' + dur + '</td><td>' + nextCell + '</td><td>' + tags + '</td></tr>';
     }).join('') +
     '</tbody></table>';
 }
