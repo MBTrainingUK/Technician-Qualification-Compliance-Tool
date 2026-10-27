@@ -104,6 +104,17 @@ The standard MB PDP Course Data export. v8 reads eight columns (zero-indexed):
 | L (11) | Completed on | Date a qualification was awarded |
 | M (12) | Facility name | Where a booked course sits (tooltip) |
 | N (13) | Registration status | `Passed` / `Enrolled` |
+| P, R (15, 17) | PC After Sales, Van After Sales | Site type (Car / Van / Car & Van) — exports from Oct 2026 onwards |
+
+### Site type
+
+From the 26 Oct 2026 export, PDP carries four franchise columns per outlet: **PC Sales, PC After Sales, Van Sales, Van After Sales** (`YES`/`Yes` when held, blank or `0` when not). The tool finds them by header name and uses the **After Sales** pair only, as it is about workshop technicians:
+
+- PC After Sales only → **Car**; Van After Sales only → **Van**; both → **Car & Van**
+- A few site names span two outlet numbers (e.g. Aylesbury has a car outlet and a van outlet); the flags are combined, so Aylesbury is Car & Van
+- Sites with neither After Sales flag (parts centres, sales-only sites such as Slough) and older exports without the columns fall back to the old rules: `VAN_NETWORK_SITES` first, then " Car" / " Van" in job titles
+
+The filter bar shows **Site type: After Sales flags** or **Site type: job titles** so it is clear which applied. On the 26 Oct export this corrected 27 MB Retailer sites from Car & Van to Car (job titles such as "Sales Manager Passenger Car & Van" had been counting as van work) and 8 from Van to Car (the Channel Islands / Isle of Man Van Mossel sites and five Authorised Repairer outlets).
 
 > **If MB change the export format**, update the column index constants in `parseExcelRows`.
 
@@ -384,6 +395,7 @@ All logic lives in the single `<script>` block. Approximate section map:
 
 | Version | Key changes |
 |---------|-------------|
+| v11 (27 Oct 2026) | **Site type from the PDP After Sales columns** when the export has them (see [Site type](#site-type)); the fast reader now reads 18 columns instead of 14. Older exports give identical results |
 | v11 (8 Oct 2026) | By Site **Next Step** shows course codes beside each state symbol. Display only — no figure changes |
 | **v11** | **Loads in about 1.5s instead of 15s.** A purpose-built reader parses the PDP export directly — reading the zip, decompressing with the browser's native `DecompressionStream` and scanning the sheet XML straight into rows — replacing `XLSX.read`, which took 12.5s and 1.8GB of heap on the September export. SheetJS remains loaded for the delegate Excel export and as an automatic fallback if the fast reader cannot handle a file. **Also fixes a date off-by-one:** `toISODate` read SheetJS's dates via `toISOString()`, which on any machine ahead of UTC (the UK in summer, CET all year) reported every date a day early — including the `Course Date` column of the delegate export. Dates are now the true calendar date, so any date shown in By Site or exported moves one day later than v10 reported. No compliance figure changes: verified across all 598,393 rows and all 298 scored sites against the same export |
 | **v10** | Interface rebuild. Delegate lists export to **Excel** instead of PDF, dropping the jsPDF dependency; apprentice filter became a segmented control and the selected filter segment is now solid accent rather than just bold.  Light theme by default with a dark toggle; every colour moved to design tokens; two-state shell so the loader collapses to a chip once data is in; sticky filter bar replacing the per-tab button rows; qualification codes, counting rules and methodology moved into a help popover; per-tab prose behind ⓘ disclosures; plain text tabs; tabular figures. No change to any calculation — verified by diffing both versions against the same export |

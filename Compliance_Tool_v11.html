@@ -746,6 +746,11 @@ function renderFilterBar() {
   var passive = PASSIVE_EXCLUDED > 0
     ? '<span class="chip-note">' + PASSIVE_EXCLUDED + ' passive delegates excluded</span>'
     : '';
+  var siteTypeNote = '<span class="chip-note" title="' +
+    (AFTERSALES_COLS
+      ? 'Car / Van taken from the PC and Van After Sales columns. Sites with neither flag fall back to the van site list and job titles.'
+      : 'This export has no After Sales columns, so Car / Van comes from the van site list and job titles.') +
+    '">Site type: ' + (AFTERSALES_COLS ? 'After Sales flags' : 'job titles') + '</span>';
 
   bar.className = 'filterbar visible';
   bar.innerHTML =
@@ -753,7 +758,7 @@ function renderFilterBar() {
     seg('Brand',   ovTypeFilter,    'setScopeType',    [['all','All'],['car','Car'],['van','Van']]) +
     seg('Apprentices', hideAppr ? 'exclude' : 'include', 'setApprentices',
         [['exclude','Excluded'],['include','Included']]) +
-    '<span class="spacer"></span>' + passive +
+    '<span class="spacer"></span>' + siteTypeNote + passive +
     (isDefault ? '' : '<button class="reset-link" onclick="resetScope()">Reset filters</button>');
 }
 
@@ -1172,9 +1177,15 @@ var VAN_NETWORK_SITES = [
 var VAN_NETWORK_SET = new Set(VAN_NETWORK_SITES);
 
 // Classify a site as 'car', 'van', or 'both'.
+// Exports from Oct 2026 carry PC / Van After Sales columns per outlet; where a
+// site has either flag set, that is the answer. Sites with neither (parts
+// centres, sales-only sites) and older exports without the columns fall back
+// to the rules below.
 // Van network sites are hardcoded to prevent PC-qualified staff causing misclassification.
 // MB dual-franchise sites (car + van) are detected by job role keywords.
 function getSiteType(site) {
+  var f = SITE_AFTERSALES[site];
+  if (f && (f.pc || f.van)) return f.pc && f.van ? 'both' : f.van ? 'van' : 'car';
   var inVanNetwork = VAN_NETWORK_SET.has(site);
   var hasCar = false, hasVan = false;
   SITE_DATA[site].forEach(function(p) {
@@ -2047,7 +2058,8 @@ function fileChosen(inp) { if (inp.files[0]) processFile(inp.files[0]); inp.valu
 // export it cannot handle still loads rather than failing in front of a user.
 function readRows(raw, onStage) {
   return Promise.resolve().then(function() {
-    return scanXlsxRows(raw, 14, onStage);
+    // 18 columns: A–N plus the Oct 2026 Sales / After Sales flags in O–R.
+    return scanXlsxRows(raw, 18, onStage);
   }).catch(function(err) {
     console.warn('Fast reader unavailable, falling back to SheetJS:', err && err.message);
     if (typeof XLSX === 'undefined') throw new Error('SheetJS library not loaded — check your internet connection and refresh the page.');
@@ -2113,6 +2125,10 @@ function showLoadError(dz, err) {
 // the Overview says so explicitly rather than implying it did something.
 var PASSIVE_EXCLUDED = 0;
 var PERSON_STATUS_SEEN = {};
+// Per-outlet After Sales flags from the Oct 2026 export format: { pc, van }.
+// Empty when the export has no such columns. Found by header name, not position.
+var SITE_AFTERSALES = {};
+var AFTERSALES_COLS = false;
 
 function parseExcelRows(rows) {
   // Column indices (0-based) in the PDP Course Data export:
@@ -2120,15 +2136,29 @@ function parseExcelRows(rows) {
   //   4 Course name      5 Person status   6 Last name         7 First name
   //   8 Username         9 Primary job    10 Start date       11 Completed on
   //  12 Facility name   13 Registration status
+  // From Oct 2026 also: PC Sales, PC After Sales, Van Sales, Van After Sales —
+  // 'YES'/'Yes' when the outlet holds that franchise, blank or 0 when not.
   var data = {};
   var personIdx = {};
   var passiveKeys = {};
   PASSIVE_EXCLUDED = 0;
   PERSON_STATUS_SEEN = {};
+  SITE_AFTERSALES = {};
+  var hdr = (rows[0] || []).map(function(h) { return String(h || '').trim().toLowerCase(); });
+  var pcAsCol = hdr.indexOf('pc after sales'), vanAsCol = hdr.indexOf('van after sales');
+  AFTERSALES_COLS = pcAsCol >= 0 && vanAsCol >= 0;
+  function isYes(v) { return String(v || '').trim().toUpperCase() === 'YES'; }
   for (var i = 1; i < rows.length; i++) {
     var r = rows[i];
     var outlet = String(r[1] || '').trim();
     if (!outlet) continue;
+    // Sites are keyed by name, and a few names span two outlet numbers (e.g.
+    // Aylesbury has a car outlet and a van outlet), so flags are OR-ed together.
+    if (AFTERSALES_COLS) {
+      var af = SITE_AFTERSALES[outlet] || (SITE_AFTERSALES[outlet] = { pc: false, van: false });
+      if (!af.pc  && isYes(r[pcAsCol]))  af.pc  = true;
+      if (!af.van && isYes(r[vanAsCol])) af.van = true;
+    }
     var learnForm = String(r[2]  || '').trim();
     var courseNo  = String(r[3]  || '').trim();
     var pStatus   = String(r[5]  || '').trim();
