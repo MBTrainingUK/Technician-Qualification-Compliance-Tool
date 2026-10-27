@@ -318,6 +318,10 @@ The network filters rely on hardcoded arrays inside the HTML: `MB_OFFICIAL_SITES
 
 Site names must match the **exact spelling used by PDP**, including spacing and punctuation — `Marshall Truck and Van  - Southampton` has a double space before the dash.
 
+**Spotting renames:** when the export has the After Sales columns, any outlet flagged PC or Van After Sales that is on neither `MB_OFFICIAL_SITES` nor `MB_PARTNER_SITES` shows in the filter bar as **"N franchised sites not in network lists"**; click it to see the names. Outlets named `(Inactive) …` are ignored. A rename usually shows up there first — add the new name, keep the old one so earlier exports still match.
+
+Authorised Repairers owned by a retailer group (Rygor, Mertrux, Ciceley, MBNI, SAGA) sit in `MB_OFFICIAL_SITES`; independent ones (Europa Sheffield, Regent Garage) in `MB_PARTNER_SITES`.
+
 To extract exact outlet names from a PDP export:
 
 ```python
@@ -395,6 +399,7 @@ All logic lives in the single `<script>` block. Approximate section map:
 
 | Version | Key changes |
 |---------|-------------|
+| v11 (27 Oct 2026) | **Network list fixes:** added `Van Mossel Esplanade` (renamed from "… Isle of Wight", 3 technicians had dropped out), `S&P Garages - Lincoln` (van retailer, never listed), `SAGA Witham Mercedes-Benz Authorised Repairer` (new outlet) to MB Retailers; corrected Partners to PDP's name `Europa Sheffield Mercedes-Benz Authorised Repairer` (7 technicians had been missing). New filter bar warning for franchised sites on neither list. September figures shift slightly as Lincoln and Europa Sheffield are now counted |
 | v11 (27 Oct 2026) | **Site type from the PDP After Sales columns** when the export has them (see [Site type](#site-type)); the fast reader now reads 18 columns instead of 14. Older exports give identical results |
 | v11 (8 Oct 2026) | By Site **Next Step** shows course codes beside each state symbol. Display only — no figure changes |
 | **v11** | **Loads in about 1.5s instead of 15s.** A purpose-built reader parses the PDP export directly — reading the zip, decompressing with the browser's native `DecompressionStream` and scanning the sheet XML straight into rows — replacing `XLSX.read`, which took 12.5s and 1.8GB of heap on the September export. SheetJS remains loaded for the delegate Excel export and as an automatic fallback if the fast reader cannot handle a file. **Also fixes a date off-by-one:** `toISODate` read SheetJS's dates via `toISOString()`, which on any machine ahead of UTC (the UK in summer, CET all year) reported every date a day early — including the `Course Date` column of the delegate export. Dates are now the true calendar date, so any date shown in By Site or exported moves one day later than v10 reported. No compliance figure changes: verified across all 598,393 rows and all 298 scored sites against the same export |

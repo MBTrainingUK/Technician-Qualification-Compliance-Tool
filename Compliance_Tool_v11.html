@@ -751,6 +751,18 @@ function renderFilterBar() {
       ? 'Car / Van taken from the PC and Van After Sales columns. Sites with neither flag fall back to the van site list and job titles.'
       : 'This export has no After Sales columns, so Car / Van comes from the van site list and job titles.') +
     '">Site type: ' + (AFTERSALES_COLS ? 'After Sales flags' : 'job titles') + '</span>';
+  // Early warning for renames: outlets PDP flags as After Sales that are on
+  // neither network list would otherwise drop silently out of both filters.
+  var unlisted = Object.keys(SITE_AFTERSALES).filter(function(s) {
+    var f = SITE_AFTERSALES[s];
+    return (f.pc || f.van) && s.indexOf('(Inactive)') !== 0 &&
+           !MB_OFFICIAL_SET.has(s) && !MB_PARTNER_SET.has(s);
+  }).sort();
+  var unlistedNote = unlisted.length
+    ? '<button class="reset-link" onclick="toggleUnlisted()" title="After Sales sites missing from the MB Retailers and Partners lists — usually a rename in PDP">' +
+        unlisted.length + ' franchised site' + (unlisted.length === 1 ? '' : 's') + ' not in network lists</button>' +
+      (showUnlisted ? '<span class="chip-note">' + unlisted.map(esc).join(' &middot; ') + '</span>' : '')
+    : '';
 
   bar.className = 'filterbar visible';
   bar.innerHTML =
@@ -758,9 +770,12 @@ function renderFilterBar() {
     seg('Brand',   ovTypeFilter,    'setScopeType',    [['all','All'],['car','Car'],['van','Van']]) +
     seg('Apprentices', hideAppr ? 'exclude' : 'include', 'setApprentices',
         [['exclude','Excluded'],['include','Included']]) +
-    '<span class="spacer"></span>' + siteTypeNote + passive +
+    '<span class="spacer"></span>' + unlistedNote + siteTypeNote + passive +
     (isDefault ? '' : '<button class="reset-link" onclick="resetScope()">Reset filters</button>');
 }
+
+var showUnlisted = false;
+function toggleUnlisted() { showUnlisted = !showUnlisted; renderFilterBar(); }
 
 function resetScope() {
   ovNetworkFilter = 'mb';
@@ -1168,6 +1183,7 @@ var VAN_NETWORK_SITES = [
   'SAGA Truck and Van - Ipswich','SAGA Truck and Van - Norwich','SAGA Truck and Van - Sittingbourne',
   'SAGA Truck and Van - Tonbridge','SAGA Truck and Van - Witham',
   'Sandown Parts Distribution Centre','Sandown Van Centre - Poole',
+  'S&P Garages - Lincoln',
   'Sytner Colindale Trade Parts Centre',
   'Van Mossel Jacksons Guernsey','Van Mossel Jacksons Jersey',
   'Van Mossel Jacksons Isle of Man','Van Mossel Esplanade Isle of Wight',
@@ -1540,6 +1556,7 @@ var MB_OFFICIAL_SITES = [
   'Mercedes-Benz of Epsom',
   'Van Mossel Jacksons Guernsey','Van Mossel Jacksons Jersey',
   'Van Mossel Jacksons Isle of Man','Van Mossel Esplanade Isle of Wight',
+  'Van Mossel Esplanade', // PDP name from Oct 2026 (outlet 269)
   'Mercedes-Benz of Macclesfield','Mercedes-Benz of Stockport','Mercedes-Benz of Whitefield',
   'Mercedes-Benz of Birmingham','Mercedes-Benz of Solihull','Mercedes-Benz of Solihull (After Sales)',
   'Mercedes-Benz of Tamworth',
@@ -1599,13 +1616,16 @@ var MB_OFFICIAL_SITES = [
   'SAGA Truck and Van - Ashford','SAGA Truck and Van - Dartford','SAGA Truck and Van - Hatfield',
   'SAGA Truck and Van - Ipswich','SAGA Truck and Van - Norwich','SAGA Truck and Van - Sittingbourne',
   'SAGA Truck and Van - Tonbridge','SAGA Truck and Van - Witham',
+  'SAGA Witham Mercedes-Benz Authorised Repairer',
   'Sandown Parts Distribution Centre','Sandown Van Centre - Poole',
+  'S&P Garages - Lincoln',
   'Sytner Colindale Trade Parts Centre',
   'Western Commercial - Bellshill','Western Commercial - Dundee',
   'Western Commercial - Edinburgh','Western Commercial - Glasgow'
 ];
 var MB_PARTNER_SITES = [
   'Europa Mercedes-Benz Authorised Repairer',
+  'Europa Sheffield Mercedes-Benz Authorised Repairer', // PDP's actual name (outlet 2138)
   'Regent Garage MB Authorised Repairer'
 ];
 var MB_OFFICIAL_SET = new Set(MB_OFFICIAL_SITES);
